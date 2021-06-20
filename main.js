@@ -1217,6 +1217,8 @@ function estimation_data_massage(estimation_data) {
       f.vars_id.includes(marginal.var_id)
     );
     // automagically compute the factor position
+    // For a factor involving several variables, the dot is positioned at the
+    // barycenter of the variables mean position
     // Obviously (or not), for an unary factor, the factor dot position will reduce
     // to its unique associated node, which is suboptimal...
     if (f.vars.length > 1) {
@@ -1231,7 +1233,7 @@ function estimation_data_massage(estimation_data) {
     } else {
       f.dot_factor_position = {
         x: f.vars[0].mean.x,
-        y: f.vars[0].mean.y + 5,
+        y: f.vars[0].mean.y + 5*GlobalUI.base_unit_graph,
       };
     }
   });
