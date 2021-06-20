@@ -30,6 +30,7 @@ GlobalUI = {
   selected_robot_id: "",
   base_unit_graph:1, // unit that controls the dimensions of the graph 
   // (set when receiving a graph and getting a medium distance between the nodes)
+  // this is the default setting, it can instead be set by the message header of graph
 };
 /******************************************************************************
  *                           SVG Group binding to d3
