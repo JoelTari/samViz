@@ -1,17 +1,16 @@
 /*
-* Copyright 2021 AKKA Technologies (joel.tari-summerfield@akka.eu)
-*
-* Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent versions of the EUPL (the "Licence");
-* You may not use this work except in compliance with the Licence.
-* You may obtain a copy of the Licence at:
-*
-* https://joinup.ec.europa.eu/software/page/eupl
-*
-* Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed on an "AS IS" basis,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the Licence for the specific language governing permissions and limitations under the Licence.
-*/
-
+ * Copyright 2021 AKKA Technologies (joel.tari-summerfield@akka.eu)
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ * https://joinup.ec.europa.eu/software/page/eupl
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ */
 
 // DOM related
 const elBody = d3.select("body");
@@ -28,7 +27,7 @@ const aratio = 0.6;
 // initially no robot is selected
 GlobalUI = {
   selected_robot_id: "",
-  base_unit_graph:1, // unit that controls the dimensions of the graph 
+  base_unit_graph: 1, // unit that controls the dimensions of the graph
   // (set when receiving a graph and getting a medium distance between the nodes)
   // this is the default setting, it can instead be set by the message header of graph
 };
@@ -65,13 +64,19 @@ let elsLandmark = elLandmarks.selectAll(".landmark");
 //       .scaleExtent([1, 40])
 //       .on("zoom", zoomed);
 
-elCanvas.call(d3.zoom()
-    .extent([[-300, -180], [300, 180]])
+elCanvas.call(
+  d3
+    .zoom()
+    .extent([
+      [-300, -180],
+      [300, 180],
+    ])
     .scaleExtent([0.1, 40])
-    .on("zoom", zoomed));
+    .on("zoom", zoomed)
+);
 
-function zoomed({transform}) {
- elMainGroup.attr("transform", transform);
+function zoomed({ transform }) {
+  elMainGroup.attr("transform", transform);
 }
 
 /******************************************************************************
@@ -96,8 +101,12 @@ client.on("connect", function () {
   });
 });
 
+// this event receive incoming mqtt topics (for which there is a subscription) and acts accordingly
 client.on("message", function (topic, message) {
-  if (topic == "ground_truth") {
+  if (topic == "meta_info"){
+    // TODO: create stuff according to meta
+  }
+  else if (topic == "ground_truth") {
     // This topic should be called in fact metaInfo or something when no ground truth is available
     // create the AgentTeam instanciate the robot objects
     // create a GeUpPa for the landmarks
@@ -114,7 +123,7 @@ client.on("message", function (topic, message) {
               // size is the area, for a cross: area= desired_tot_length**2 *5
               .attr("d", `${d3.symbol(d3.symbolCross, 1.1 * 1.1)()}`)
               .classed("landmark", true)
-              .attr('id',d=> d.landmark_id)
+              .attr("id", (d) => d.landmark_id)
               .attr("transform", (d) => `translate(${d.state.x},${d.state.y})`)
               .on("mouseover", function (e, d) {
                 // TODO: use the UI event function
@@ -139,6 +148,8 @@ client.on("message", function (topic, message) {
       // Merge UI and ground_truth
       robot_ground_truth.isSelected = robot_id === GlobalUI.selected_robot_id;
       AgentTeam[robot_id] = new AgentViz(robot_ground_truth, client, elAgents);
+      // activate mqtt subscriptions
+      AgentTeam[robot_id].subscribeTopicsToMqtt();
     }
   } else if (topic.split("/").length == 2) {
     const msg = JSON.parse(message.toString());
@@ -147,24 +158,84 @@ client.on("message", function (topic, message) {
   }
 });
 
+
 /******************************************************************************
  *                            Class AgentViz
  *****************************************************************************/
-// AgentTeam: define an object to hold the instances of AgentViz
-// AgentTeam['r1']= new AgentViz()...
-// TODO: make that a class, easier management for resets
 const AgentTeam = {
   checkSubscriptions: function (agent_id, topic_suffix, msg) {
     this[agent_id].mqttProcessTopicSuffix(topic_suffix, msg);
   },
 };
+// create a base default agent in any case
+AgentTeam["default"] = new BaseAgentViz("default", client, elAgents);
 
-class AgentViz {
-  constructor(robot_data, mqttc, parent_container) {
-    this.id = robot_data.robot_id;
+class BaseAgentViz {
+  constructor(id, mqttc, parent_container) {
+    this.id = id;
     this.d3parent_container = parent_container; // d3 selection this visual is a child of. parent_container.children are the other agents !
-    this.d3container = parent_container.append('g').classed('agent',true).attr('id',this.id); // d3 selection inside which this agent will append stuff
+    this.d3container = parent_container
+      .append("g")
+      .classed("agent", true)
+      .attr("id", this.id); // d3 selection inside which this agent will append stuff
     this.mqttc = mqttc;
+    // Object sub_topics keys: topic name, value: callback function
+    this.sub_topics = {};
+    this.pub_topics = [];
+    // add 'graphs' as a subscribed topic
+    this.sub_topics["graphs"] = this.graphsCallback;
+    // d3: create the factor graph structure (only 1 FG per robot for now)
+    this.d3FactorGraph = constructD3FactorGraph(this.d3container, this.id);
+  }
+
+  subscribeTopicsToMqtt = function () {
+    // do the subscriptions, for each topic in the sub_topics array member
+    Object.keys(this.sub_topics).forEach((t) => {
+      this.mqttc.subscribe(`${this.id}/${t}`, (err) => {
+        if (!err)
+          console.log(`[mqtt] subscribed to the topic >> ${this.id}/${t}`);
+      });
+    });
+  };
+
+  // entry point to get the correct callback depending on the topic name
+  // throw error if topic name is not in the list
+  mqttProcessTopicSuffix = function (suffix_topic_name, data) {
+    this.sub_topics[suffix_topic_name](data);
+  };
+
+  graphsCallback = function (graph) {
+    console.log("Receive some graph return :" + this.id);
+    console.log(graph);
+
+    // TEMPORARY (TODO)
+    // apply base unit graph if specified
+    if (graph.header.base_unit != null)
+      GlobalUI.base_unit_graph = graph.header.base_unit;
+
+    // massage data
+    estimation_data_massage(graph);
+
+    // general update pattern
+    this.d3FactorGraph
+      .select("g.factors_group")
+      .selectAll(".factor")
+      .data(graph.factors, (d) => d.factor_id)
+      .join(join_enter_factor, join_update_factor, join_exit_factor);
+
+    this.d3FactorGraph
+      .select("g.vertices_group")
+      .selectAll(".vertex")
+      .data(graph.marginals, (d) => d.var_id)
+      .join(join_enter_vertex, join_update_vertex); // TODO: exit vertex
+  };
+}
+
+class fullAgentViz extends BaseAgentViz {
+  constructor(robot_data, mqttc, parent_container) {
+    // base class ctor
+    super(robot_data.id, mqttc, parent_container);
+
     this.sensor_svg_path = this.sensorVisual(robot_data.sensor);
     this.history_odom = []; // successive poses of the odometry (from the last graph pose): emptied when a new pose is created on the graph
     this.history_graph = []; // succesives poses of the graph (x0 to x{last_pose})
@@ -183,49 +254,19 @@ class AgentViz {
       this.state_history
     );
     // topic names (INs)
-    this.topic_odom = 'odom'
-    this.topic_graphs = 'graphs'
-    this.topic_measures_feedback = 'measures_feedback'
-    this.topic_ground_truth = 'ground_truth'
+    this.sub_topics["odom"] = this.odomCallback;
+    this.sub_topics["measures_feedback"] = this.measuresCallback;
+    this.sub_topics["ground_truth"] = this.groundTruthCallback;
+
     // topic names (OUTs)
     this.topic_request_ground_truth = `${this.id}/request_ground_truth`;
     this.topic_cmd = `${this.id}/cmd`;
-    this.topic_request_graph = 'request_graphs'
+    this.topic_request_graph = "request_graphs";
     // d3 : create the odom structure
-    this.d3Odom = constructD3Odom(this.d3container,this.id);
+    this.d3Odom = constructD3Odom(this.d3container, this.id);
     // d3: create the measure visualization structure
     this.d3MeasuresViz = constructD3MeasuresViz(this.d3container, this.id);
-    // d3: create the factor graph structure (only 1 FG per robot for now)
-    this.d3FactorGraph = constructD3FactorGraph(this.d3container, this.id)
-    // do the mqtt subscriptions
-    this.constructMqtt();
-    // publish some request
-    this.mqttc.publish(this.topic_request_graph,'')
   }
-  constructMqtt = function () {
-    // do the subscriptions
-    this.mqttc.subscribe(`${this.id}/${this.topic_odom}`, (err) => {
-      if (!err)
-        console.log(`[mqtt] subscribed to the topic >> ${this.id}/${this.topic_odom}`);
-    });
-    this.mqttc.subscribe(`${this.id}/${this.topic_graphs}`, (err) => {
-      if (!err)
-        console.log(`[mqtt] subscribed to the topic >> ${this.id}/${this.topic_graphs}`);
-    });
-    this.mqttc.subscribe(`${this.id}/${this.topic_measures_feedback}`, (err) => {
-      if (!err)
-        console.log(`[mqtt] subscribed to the topic >> ${this.id}/${this.topic_measures_feedback}`);
-    });
-    this.mqttc.subscribe(`${this.id}/${this.topic_ground_truth}`, (err) => {
-      if (!err)
-        console.log(
-          `[mqtt] subscribed to the topic >> ${this.id}/${this.topic_ground_truth}`
-        );
-    });
-    // publishers topic name
-    // id/request_ground_truth (expected id/ground_truth back)
-    // id/cmd (expected id/odom back)
-  };
   // update Visual truth
   updateVisualTruth = function (state_history, state) {
     // translate
@@ -256,94 +297,97 @@ class AgentViz {
     }
   };
   // update visual odom
-  updateVisualOdom = function(odom_history,state,visual_covariance = null){
+  updateVisualOdom = function (odom_history, state, visual_covariance = null) {
     // odom becomes visible
-    this.d3Odom.style('visibility',null)
+    this.d3Odom.style("visibility", null);
 
     this.d3Odom
-      .select('.gtranslate')
-      .attr('transform',`translate(${state.x},${state.y})`)
-      .call(function(g_tra){
-        if(visual_covariance !== null) 
-        // covariance could be 0 (impossible to draw, therefore not transmited in the data)
-        {
+      .select(".gtranslate")
+      .attr("transform", `translate(${state.x},${state.y})`)
+      .call(function (g_tra) {
+        if (visual_covariance !== null) {
+          // covariance could be 0 (impossible to draw, therefore not transmited in the data)
           g_tra
-            .select('ellipse.odom_covariance')
-            .attr('rx',visual_covariance.sigma[0]*Math.sqrt(9.21))
-            .attr('ry',visual_covariance.sigma[1]*Math.sqrt(9.21))
-            .attr('transform',`rotate(${visual_covariance.rot*180/Math.PI})`)
+            .select("ellipse.odom_covariance")
+            .attr("rx", visual_covariance.sigma[0] * Math.sqrt(9.21))
+            .attr("ry", visual_covariance.sigma[1] * Math.sqrt(9.21))
+            .attr(
+              "transform",
+              `rotate(${(visual_covariance.rot * 180) / Math.PI})`
+            );
         }
         g_tra
-          .select('.grotate')
-          .attr('transform',`rotate(${state.th*180/Math.PI})`)
-      })
+          .select(".grotate")
+          .attr("transform", `rotate(${(state.th * 180) / Math.PI})`);
+      });
 
-    if (odom_history.length >= 2)
-    {
+    if (odom_history.length >= 2) {
       this.d3Odom
-        .select('polyline.odom_history')
-        .attr('points',odom_history.map((e) => `${e.x},${e.y}`).join(" "));
+        .select("polyline.odom_history")
+        .attr("points", odom_history.map((e) => `${e.x},${e.y}`).join(" "));
     }
-  }
-  transcientMeasureVisual = function(state, measure_set){
-    const measures_data = measure_set.map(e => { 
-                                        if (e.type === 'range-AA'){
-                                          return {x:e.vect[0],y:e.vect[1],type:e.type}
-                                        }
-                                        else if (e.type === 'range-bearing'){
-                                          return {r:e.vect[0], a:e.vect[1], type: e.type}
-                                        }
-                                        else console.error('Unsupported measure type')
-                                        })
+  };
+  transcientMeasureVisual = function (state, measure_set) {
+    const measures_data = measure_set.map((e) => {
+      if (e.type === "range-AA") {
+        return { x: e.vect[0], y: e.vect[1], type: e.type };
+      } else if (e.type === "range-bearing") {
+        return { r: e.vect[0], a: e.vect[1], type: e.type };
+      } else console.error("Unsupported measure type");
+    });
     const time_illumination = 200; // TODO: Global UI
 
     this.d3MeasuresViz
-        .selectAll('line')
-        .data(measures_data)
-        .join('line')
-        .classed('measure_ray',true)
-        .each(function(d){
-          if (d.type === 'range-AA'){
-            d3.select(this)
-              .attr('x1',state.x)
-              .attr('y1',state.y)
-              .attr('x2',d => d.x+state.x)
-              .attr('y2',d => d.y+state.y)
-          }
-          else if (d.type === 'range-bearing'){
-            const x2r = d.r*Math.cos(d.a)
-            const y2r = d.r*Math.sin(d.a)
-            d3.select(this)
-              .attr('x1',state.x)
-              .attr('y1',state.y)
-              .attr('x2',d => state.x + d.r*Math.cos(state.th+d.a))
-              .attr('y2',d => state.y + d.r*Math.sin(state.th+d.a))
-              // .attr('x2',d => state.x + x2r*Math.cos(state.th) + y2r*Math.sin(state.th))
-              // .attr('y2',d => state.y - x2r*Math.sin(state.th) + y2r*Math.cos(state.th))
-          }
-          else{ // TODO: bearing 
-            console.error('Unsupported measure type')
-          }
-        })
-        .style('opacity',0)
-        .style('stroke-width',0.05)
-        .transition('reveal_mes').duration(time_illumination)
-        .style('opacity',null)
-        .style('stroke-width',null)
-        .transition('remove_mes').duration(time_illumination)
-        .style('opacity',0)
-        .style('stroke-width',0.05)
-        .remove();
+      .selectAll("line")
+      .data(measures_data)
+      .join("line")
+      .classed("measure_ray", true)
+      .each(function (d) {
+        if (d.type === "range-AA") {
+          d3.select(this)
+            .attr("x1", state.x)
+            .attr("y1", state.y)
+            .attr("x2", (d) => d.x + state.x)
+            .attr("y2", (d) => d.y + state.y);
+        } else if (d.type === "range-bearing") {
+          const x2r = d.r * Math.cos(d.a);
+          const y2r = d.r * Math.sin(d.a);
+          d3.select(this)
+            .attr("x1", state.x)
+            .attr("y1", state.y)
+            .attr("x2", (d) => state.x + d.r * Math.cos(state.th + d.a))
+            .attr("y2", (d) => state.y + d.r * Math.sin(state.th + d.a));
+          // .attr('x2',d => state.x + x2r*Math.cos(state.th) + y2r*Math.sin(state.th))
+          // .attr('y2',d => state.y - x2r*Math.sin(state.th) + y2r*Math.cos(state.th))
+        } else {
+          // TODO: bearing
+          console.error("Unsupported measure type");
+        }
+      })
+      .style("opacity", 0)
+      .style("stroke-width", 0.05)
+      .transition("reveal_mes")
+      .duration(time_illumination)
+      .style("opacity", null)
+      .style("stroke-width", null)
+      .transition("remove_mes")
+      .duration(time_illumination)
+      .style("opacity", 0)
+      .style("stroke-width", 0.05)
+      .remove();
 
     // class the landmark as illumitated
-    elsLandmark.filter(dl=> measure_set.map(e=>e.landmark_id).includes(dl.landmark_id) )
-              .transition('reveal_illum').duration(time_illumination)
-              .style('fill','darksalmon')
-              .transition('remove_illum').duration(time_illumination)
-              .style('fill',null)
-
-              
-  }
+    elsLandmark
+      .filter((dl) =>
+        measure_set.map((e) => e.landmark_id).includes(dl.landmark_id)
+      )
+      .transition("reveal_illum")
+      .duration(time_illumination)
+      .style("fill", "darksalmon")
+      .transition("remove_illum")
+      .duration(time_illumination)
+      .style("fill", null);
+  };
 
   // add ground_truth data
   registerGroundTruthData = function (state) {
@@ -367,7 +411,6 @@ class AgentViz {
     );
   };
 
-  
   // function that given the data angle cover and range, draws the string data for the
   // svg-path element
   sensorVisual = function (sensor) {
@@ -382,39 +425,21 @@ class AgentViz {
     return `M0,0 l${px},${py} A ${rx} ${ry} 0 ${sweep} 0 ${px} ${-py}`;
   };
 
-  // define an entry point for the topic suffix (that will dispatch to appropriate callback)
-  // TODO : topic names
-  mqttProcessTopicSuffix = function (suffix_topic_name, data) {
-    switch (suffix_topic_name) {
-      // case `odom`:
-      case this.topic_odom:
-        this.odomCallback(data);
-        break;
-      case this.topic_graphs:
-        this.graphsCallback(data);
-        break;
-      case this.topic_measures_feedback:
-        this.measuresCallback(data);
-        break;
-      case this.topic_ground_truth:
-        this.groundTruthCallback(data);
-        break;
-      default:
-        console.error("unknown suffix topic name : " + suffix_topic_name);
-        break;
-    }
-  };
   // define the callbacks
   odomCallback = function (data) {
     console.log("Receive some odom response " + this.id + "with data: ");
     console.log(data);
     this.registerOdomData(data);
-    this.updateVisualOdom(this.history_odom,data.state,data.visual_covariance);
+    this.updateVisualOdom(
+      this.history_odom,
+      data.state,
+      data.visual_covariance
+    );
   };
   graphsCallback = function (graph) {
     console.log("Receive some graph return :" + this.id);
-    console.log(graph)
-    
+    console.log(graph);
+
     // TEMPORARY (TODO)
     // apply base unit graph if specified
     if (graph.header.base_unit != null)
@@ -427,13 +452,13 @@ class AgentViz {
     this.d3FactorGraph
       .select("g.factors_group")
       .selectAll(".factor")
-      .data( graph.factors, (d) => d.factor_id)
+      .data(graph.factors, (d) => d.factor_id)
       .join(join_enter_factor, join_update_factor, join_exit_factor);
 
     this.d3FactorGraph
       .select("g.vertices_group")
       .selectAll(".vertex")
-      .data( graph.marginals, (d) => d.var_id)
+      .data(graph.marginals, (d) => d.var_id)
       .join(join_enter_vertex, join_update_vertex); // TODO: exit vertex
   };
   measuresCallback = function (data) {
@@ -445,8 +470,6 @@ class AgentViz {
     this.registerGroundTruthData(data.state);
     this.updateVisualTruth(this.history_true, data.state);
   };
-
-  // general update patterns (are used in the callbacks)
 }
 
 /******************************************************************************
@@ -666,145 +689,130 @@ function getRandomInt(max) {
 /******************************************************************************
  *                            HELPER Visual
  *****************************************************************************/
-  constructD3Truth = function (
-    d3container,
-    d3parent_container,
-    robot_data,
-    sensor_svg_path,
-    state_history
-  ) {
-    // d3 truth
-    return  d3container
-      .append("g")
-      .classed("selected", robot_data.isSelected)
-      .classed('agent__truth',true)
-      .attr("id", robot_data.robot_id)
-      .call(function (g_truth) {
-        // call rather ??
-        g_truth
-          .append("g")
-          .attr(
-            "transform",
-            () => `translate(${robot_data.state.x},${robot_data.state.y})`
-          )
-          .classed("gtranslate", true)
-          .append("g")
-          .classed("grotate", true)
-          .attr("transform", `rotate(${(robot_data.state.th * 180) / Math.PI})`)
-          .call(function (g) {
-            // adding all display components
-            // 1. the sensor
-            if (robot_data.sensor != null)
-              g.append("path")
-                .classed("sensor", true)
-                .attr("d", sensor_svg_path);
-            // 2. the robot
-            g.append("polygon")
-              .attr("points", "0,-1 0,1 3,0") // TODO: append a <g> first
-              .on("mouseover", mouseover_mg(`${robot_data.robot_id}`))
-              .on("mouseout", mouseout_mg());
-            g.append("line")
-              .attr("x1", 0)
-              .attr("y1", 0)
-              .attr("x2", 1)
-              .attr("y2", 0);
-          });
-        // the state history   TODO: necessary ??? Since I create it in update
-        if (state_history >= 2) {
-          g_truth
-            .append("polyline")
-            .classed("state_history", true)
-            // .attr("id", (d) => d.seq)
-            // the points of the polyline are the history + the rt state
-            .attr(
-              "points",
-              state_history.map((e) => `${e.x},${e.y}`).join(" ") //+ ` ${state.x},${state.y}`
-            );
-        }
-      })
-      .transition()
-      .duration(500)
-      .style("opacity", 1)
-      .selection()
-      .on("click", function () {
-        // for next joining of data
-        GlobalUI.selected_robot_id = d3.select(this).attr("id");
-        // for current data session: put others to false, and the selected to true
-        d3parent_container.selectAll(".agent__truth").classed("selected", false);
-        d3.select(this).classed("selected", true);
-      });
-  };
-
-constructD3Odom = function(d3container, robot_id){
+constructD3Truth = function (
+  d3container,
+  d3parent_container,
+  robot_data,
+  sensor_svg_path,
+  state_history
+) {
+  // d3 truth
   return d3container
-    .append('g')
-    .classed('agent__odom',true)
-    .style('visibility','hidden')
-    .attr('id',robot_id)
-    .call(function(g_odom){
+    .append("g")
+    .classed("selected", robot_data.isSelected)
+    .classed("agent__truth", true)
+    .attr("id", robot_data.robot_id)
+    .call(function (g_truth) {
+      // call rather ??
+      g_truth
+        .append("g")
+        .attr(
+          "transform",
+          () => `translate(${robot_data.state.x},${robot_data.state.y})`
+        )
+        .classed("gtranslate", true)
+        .append("g")
+        .classed("grotate", true)
+        .attr("transform", `rotate(${(robot_data.state.th * 180) / Math.PI})`)
+        .call(function (g) {
+          // adding all display components
+          // 1. the sensor
+          if (robot_data.sensor != null)
+            g.append("path").classed("sensor", true).attr("d", sensor_svg_path);
+          // 2. the robot
+          g.append("polygon")
+            .attr("points", "0,-1 0,1 3,0") // TODO: append a <g> first
+            .on("mouseover", mouseover_mg(`${robot_data.robot_id}`))
+            .on("mouseout", mouseout_mg());
+          g.append("line")
+            .attr("x1", 0)
+            .attr("y1", 0)
+            .attr("x2", 1)
+            .attr("y2", 0);
+        });
+      // the state history   TODO: necessary ??? Since I create it in update
+      if (state_history >= 2) {
+        g_truth
+          .append("polyline")
+          .classed("state_history", true)
+          // .attr("id", (d) => d.seq)
+          // the points of the polyline are the history + the rt state
+          .attr(
+            "points",
+            state_history.map((e) => `${e.x},${e.y}`).join(" ") //+ ` ${state.x},${state.y}`
+          );
+      }
+    })
+    .transition()
+    .duration(500)
+    .style("opacity", 1)
+    .selection()
+    .on("click", function () {
+      // for next joining of data
+      GlobalUI.selected_robot_id = d3.select(this).attr("id");
+      // for current data session: put others to false, and the selected to true
+      d3parent_container.selectAll(".agent__truth").classed("selected", false);
+      d3.select(this).classed("selected", true);
+    });
+};
+
+constructD3Odom = function (d3container, robot_id) {
+  return d3container
+    .append("g")
+    .classed("agent__odom", true)
+    .style("visibility", "hidden")
+    .attr("id", robot_id)
+    .call(function (g_odom) {
       g_odom
-        .append('g')
-        .classed('gtranslate',true)
-        .call(function(g_tra){
+        .append("g")
+        .classed("gtranslate", true)
+        .call(function (g_tra) {
           g_tra
-            .append('g')
-            .classed('grotate',true)
-            .classed('ghost',true)
-            .call(function(g_rot){
+            .append("g")
+            .classed("grotate", true)
+            .classed("ghost", true)
+            .call(function (g_rot) {
               g_rot
-                .append('polygon')
+                .append("polygon")
                 .attr("points", "0,-1 0,1 3,0")
                 .style("stroke-opacity", 0)
-                .transition().duration(400)
+                .transition()
+                .duration(400)
                 .style("stroke-opacity", null);
               g_rot
-                .append('line')
+                .append("line")
                 .attr("x1", 0)
                 .attr("y1", 0)
                 .attr("x2", 1)
                 .attr("y2", 0)
                 .style("stroke-opacity", 0)
-                .transition().duration(400)
+                .transition()
+                .duration(400)
                 .style("stroke-opacity", null);
-            })
-          g_tra
-            .append('ellipse')
-            .classed('odom_covariance',true)
-        })
-      g_odom
-        .append('polyline')
-        .classed('odom_history',true)
-    })
-}
+            });
+          g_tra.append("ellipse").classed("odom_covariance", true);
+        });
+      g_odom.append("polyline").classed("odom_history", true);
+    });
+};
 
-constructD3MeasuresViz = function(d3container, robot_id){
+constructD3MeasuresViz = function (d3container, robot_id) {
   return d3container
-    .append('g')
-    .classed('agent__measuresViz',true)
-    .attr('id',robot_id)
+    .append("g")
+    .classed("agent__measuresViz", true)
+    .attr("id", robot_id);
+};
 
-}
-
-constructD3FactorGraph = function(d3container, robot_id){
+constructD3FactorGraph = function (d3container, robot_id) {
   return d3container
-    .append('g')
-    .classed('factor_graph',true)
-    .attr('id',robot_id)
-    .call( function (g_factor_graph){
-      g_factor_graph
-        .append('g')
-        .classed('factors_group',true);
-      g_factor_graph
-        .append('g')
-        .classed('vertices_group',true);
-    })
-}
-
-/******************************************************************************
- *                            FOR TESTING PURPOSE 2
- *****************************************************************************/
-// sending estimation_graph request_position_ini
-client.publish("request_ground_truth", " ");
+    .append("g")
+    .classed("factor_graph", true)
+    .attr("id", robot_id)
+    .call(function (g_factor_graph) {
+      g_factor_graph.append("g").classed("factors_group", true);
+      g_factor_graph.append("g").classed("vertices_group", true);
+    });
+};
 
 
 /******************************************************************************
@@ -1003,7 +1011,7 @@ function join_enter_factor(enter) {
             d.vars.forEach((v) =>
               g
                 .append("line")
-                .attr("stroke-width", 0.2*GlobalUI.base_unit_graph)
+                .attr("stroke-width", 0.2 * GlobalUI.base_unit_graph)
                 .attr("x1", d.dot_factor_position.x)
                 .attr("y1", d.dot_factor_position.y)
                 .attr("x2", 0.2 * v.mean.x + 0.8 * d.dot_factor_position.x)
@@ -1018,7 +1026,7 @@ function join_enter_factor(enter) {
           } else {
             // unifactor
             g.append("line")
-              .attr("stroke-width", 0.2*GlobalUI.base_unit_graph)
+              .attr("stroke-width", 0.2 * GlobalUI.base_unit_graph)
               .attr("x1", d.dot_factor_position.x)
               .attr("y1", d.dot_factor_position.y)
               .attr("x2", d.dot_factor_position.x)
@@ -1127,45 +1135,70 @@ function join_enter_vertex(enter) {
   // transform those functions in classes of which the transitions are members
   const t_vertex_entry = d3.transition().duration(400);
 
-  return enter
-    .append("g")
-    .classed("vertex", true)
-    .attr("id", (d) => d.var_id)
-    .each(function (d) {
-      d3.select(this)
-        .append("g")
-        .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")")
-        .append("g")
-        .attr("transform", "rotate(0)")
-        .call(function (g) {
-          g.append("circle")
-            .attr("r", GlobalUI.base_unit_graph * 3)
-            .style("opacity", 0)
-            .attr("stroke-width",0.28*GlobalUI.base_unit_graph)
-            .transition(t_vertex_entry)
-            .attr("r", GlobalUI.base_unit_graph)
-            .style("opacity", null);
-          // text: variable name inside the circle
-          g.append("text")
-            .text((d) => d.var_id)
-            // .attr("stroke-width", "0.1px")
-            .attr("text-anchor", "middle")
-            .attr("alignment-baseline", "central")
-            .style("opacity", 0)
-            .transition(t_vertex_entry)
-            .attr("font-size", GlobalUI.base_unit_graph)
-            .style("opacity", null);
-          // covariance (-> a rotated group that holds an ellipse)
-          g.append("g")
-            .attr("transform", `rotate(${(d.covariance.rot * 180) / Math.PI})`)
-            .append("ellipse")
-            .attr("rx", d.covariance.sigma[0] * Math.sqrt(9.21))
-            .attr("ry", d.covariance.sigma[1] * Math.sqrt(9.21))
-            .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
-            .transition(t_vertex_entry)
-            .style("opacity", null); // wow! this will look for the CSS (has to a style)
-        });
-    });
+  return (
+    enter
+      .append("g")
+      .classed("vertex", true)
+      .attr("id", (d) => d.var_id)
+      .each(function (d) {
+        d3.select(this)
+          .append("g")
+          .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")")
+          .append("g")
+          .attr("transform", "rotate(0)")
+          .call(function (g) {
+            g.append("circle")
+              .attr("r", GlobalUI.base_unit_graph * 3)
+              .style("opacity", 0)
+              .attr("stroke-width", 0.28 * GlobalUI.base_unit_graph)
+              .transition(t_vertex_entry)
+              .attr("r", GlobalUI.base_unit_graph)
+              .style("opacity", null);
+            // text: variable name inside the circle
+            g.append("text")
+              .text((d) => d.var_id)
+              // .attr("stroke-width", "0.1px")
+              .attr("text-anchor", "middle")
+              .attr("alignment-baseline", "central")
+              .style("opacity", 0)
+              .transition(t_vertex_entry)
+              .attr("font-size", GlobalUI.base_unit_graph)
+              .style("opacity", null);
+            // covariance (-> a rotated group that holds an ellipse)
+            g.append("g")
+              .attr(
+                "transform",
+                `rotate(${(d.covariance.rot * 180) / Math.PI})`
+              )
+              .append("ellipse")
+              .attr("rx", d.covariance.sigma[0] * Math.sqrt(9.21))
+              .attr("ry", d.covariance.sigma[1] * Math.sqrt(9.21))
+              .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
+              .transition(t_vertex_entry)
+              .style("opacity", null); // wow! this will look for the CSS (has to a style)
+          });
+      })
+      // on hover, the texts and circles of .vertex will grow in size by 1.4
+      .on("mouseover", (e, _) => {
+        //circle first
+        e.currentTarget
+          .selectAll("circle")
+          .attr("r", 1.4 * GlobalUI.base_unit_graph);
+        // text should grow as well
+        e.currentTarget
+          .selectAll("text")
+          .attr("font-size", `{1.4*GlobalUI.base_unit_graph}px`);
+      })
+      // on hover out, rebase to default
+      .on("mouseout", (e, _) => {
+        e.currentTarget
+          .selectAll("circle")
+          .attr("r", 1 * GlobalUI.base_unit_graph);
+        e.currentTarget
+          .selectAll("text")
+          .attr("font-size", `{1*GlobalUI.base_unit_graph}px`);
+      })
+  );
 }
 
 function join_update_vertex(update) {
@@ -1233,7 +1266,7 @@ function estimation_data_massage(estimation_data) {
     } else {
       f.dot_factor_position = {
         x: f.vars[0].mean.x,
-        y: f.vars[0].mean.y + 5*GlobalUI.base_unit_graph,
+        y: f.vars[0].mean.y + 5 * GlobalUI.base_unit_graph,
       };
     }
   });
@@ -1307,6 +1340,7 @@ function estimation_data_massage(estimation_data) {
     });
 }
 
+// TODO : deal with this
 function estimation_query_last_pose(an_agent_estimation) {
   an_agent_estimation.last_pose.state = an_agent_estimation.graph.marginals.filter(
     (marginal) => marginal.var_id == an_agent_estimation.last_pose.last_pose_id

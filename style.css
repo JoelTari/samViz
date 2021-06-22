@@ -269,13 +269,13 @@ line.rt_line_to_last_pose {
   r: 0.55;
 }
 
-.vertex:hover circle {
-  r: 1.4;
-}
+/* .vertex:hover circle { */
+/*   r: 1.4; */
+/* } */
 
-.vertex:hover text {
-  font-size: 1.4px;
-}
+/* .vertex:hover text { */
+/*   font-size: 1.4px; */
+/* } */
 /******************************************/
 /*   GRAPH COLOR SPECIALIZATION BY AGENT  */
 /******************************************/
