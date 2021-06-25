@@ -1,15 +1,18 @@
 /*
  * Copyright 2021 AKKA Technologies (joel.tari-summerfield@akka.eu)
  *
- * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent versions of the EUPL (the "Licence");
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by
+ * the European Commission - subsequent versions of the EUPL (the "Licence");
  * You may not use this work except in compliance with the Licence.
  * You may obtain a copy of the Licence at:
  *
  * https://joinup.ec.europa.eu/software/page/eupl
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed on an "AS IS" basis,
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Licence is distributed on an "AS IS" basis,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * See the Licence for the specific language governing permissions and
+ * limitations under the Licence.
  */
 
 // DOM related
@@ -94,23 +97,29 @@ client.on("connect", function () {
     }
   });
 
-  client.subscribe("estimation", function (err) {
+  client.subscribe("meta_info", function (err) {
     if (!err) {
       console.log("[mqtt] subscribed to the topic >> estimation_graph");
     }
   });
+
 });
 
 // this event receive incoming mqtt topics (for which there is a subscription) and acts accordingly
 client.on("message", function (topic, message) {
-  if (topic == "meta_info"){
-    // TODO: create stuff according to meta
-  }
-  else if (topic == "ground_truth") {
+  // parse the msg by assuming it's json
+  const msg = JSON.parse(message.toString());
+
+  if (topic == "meta_info") {
+    // msg from meta_info should contain info such as agents, landmarks if any
+    // or any other info that helps structure the DOM for the visualization
+    // This is mandatory to use this topic when deviating from the base default
+    
+    
+  } else if (topic == "ground_truth") {
     // This topic should be called in fact metaInfo or something when no ground truth is available
     // create the AgentTeam instanciate the robot objects
     // create a GeUpPa for the landmarks
-    const msg = JSON.parse(message.toString());
     // draw landmarks first, I dont do a group for each individual
     // landmark  (no updates as they are supposed fixed)
     if (msg.landmarks != null) {
@@ -152,7 +161,6 @@ client.on("message", function (topic, message) {
       AgentTeam[robot_id].subscribeTopicsToMqtt();
     }
   } else if (topic.split("/").length == 2) {
-    const msg = JSON.parse(message.toString());
     const [agent_id, topic_suffix] = topic.split("/");
     AgentTeam.checkSubscriptions(agent_id, topic_suffix, msg);
   }
@@ -162,13 +170,17 @@ client.on("message", function (topic, message) {
 /******************************************************************************
  *                            Class AgentViz
  *****************************************************************************/
-const AgentTeam = {
-  checkSubscriptions: function (agent_id, topic_suffix, msg) {
-    this[agent_id].mqttProcessTopicSuffix(topic_suffix, msg);
-  },
+constructD3FactorGraph = function (d3container, robot_id) {
+  return d3container
+    .append("g")
+    .classed("factor_graph", true)
+    .attr("id", robot_id)
+    .call(function (g_factor_graph) {
+      g_factor_graph.append("g").classed("factors_group", true);
+      g_factor_graph.append("g").classed("vertices_group", true);
+    });
 };
-// create a base default agent in any case
-AgentTeam["default"] = new BaseAgentViz("default", client, elAgents);
+
 
 class BaseAgentViz {
   constructor(id, mqttc, parent_container) {
@@ -183,7 +195,7 @@ class BaseAgentViz {
     this.sub_topics = {};
     this.pub_topics = [];
     // add 'graphs' as a subscribed topic
-    this.sub_topics["graphs"] = this.graphsCallback;
+    this.sub_topics["graphs"] = this.graphsCallback.bind(this);
     // d3: create the factor graph structure (only 1 FG per robot for now)
     this.d3FactorGraph = constructD3FactorGraph(this.d3container, this.id);
   }
@@ -436,31 +448,6 @@ class fullAgentViz extends BaseAgentViz {
       data.visual_covariance
     );
   };
-  graphsCallback = function (graph) {
-    console.log("Receive some graph return :" + this.id);
-    console.log(graph);
-
-    // TEMPORARY (TODO)
-    // apply base unit graph if specified
-    if (graph.header.base_unit != null)
-      GlobalUI.base_unit_graph = graph.header.base_unit;
-
-    // massage data
-    estimation_data_massage(graph);
-
-    // general update pattern
-    this.d3FactorGraph
-      .select("g.factors_group")
-      .selectAll(".factor")
-      .data(graph.factors, (d) => d.factor_id)
-      .join(join_enter_factor, join_update_factor, join_exit_factor);
-
-    this.d3FactorGraph
-      .select("g.vertices_group")
-      .selectAll(".vertex")
-      .data(graph.marginals, (d) => d.var_id)
-      .join(join_enter_vertex, join_update_vertex); // TODO: exit vertex
-  };
   measuresCallback = function (data) {
     console.log("Receive some measure :" + this.id);
     this.transcientMeasureVisual(this.current_true_state, data.measures);
@@ -471,6 +458,18 @@ class fullAgentViz extends BaseAgentViz {
     this.updateVisualTruth(this.history_true, data.state);
   };
 }
+
+/******************************************************************************
+*                          Declaration of AgentTeam
+ *****************************************************************************/
+const AgentTeam = {
+  checkSubscriptions: function (agent_id, topic_suffix, msg) {
+    this[agent_id].mqttProcessTopicSuffix(topic_suffix, msg);
+  },
+};
+// create a base default agent in any case
+AgentTeam["default"] = new BaseAgentViz("default", client, elAgents);
+AgentTeam.default.subscribeTopicsToMqtt();
 
 /******************************************************************************
  *                            UI Events
@@ -803,17 +802,6 @@ constructD3MeasuresViz = function (d3container, robot_id) {
     .attr("id", robot_id);
 };
 
-constructD3FactorGraph = function (d3container, robot_id) {
-  return d3container
-    .append("g")
-    .classed("factor_graph", true)
-    .attr("id", robot_id)
-    .call(function (g_factor_graph) {
-      g_factor_graph.append("g").classed("factors_group", true);
-      g_factor_graph.append("g").classed("vertices_group", true);
-    });
-};
-
 
 /******************************************************************************
  *                          UPDATE PATTERN ROUTINES
@@ -1051,8 +1039,19 @@ function join_enter_factor(enter) {
             )
             // .style("opacity", 0)
             .attr("r", 0.3 * 2 * GlobalUI.base_unit_graph)
-            .on("mouseover", mouseover_mg(`${d.factor_id}`))
-            .on("mouseout", mouseout_mg())
+            // on hover, the texts and circles of .vertex will grow in size by 1.4
+            .on("mouseover", (e, _) => {
+              //circle first
+              d3.select(e.currentTarget)
+                .selectAll("circle")
+                .attr("r", 1.4*0.3*GlobalUI.base_unit_graph);
+            })
+            // on hover out, rebase to default
+            .on("mouseout", (e, _) => {
+              d3.select(e.currentTarget)
+                .selectAll("circle")
+                .attr("r", 1 *0.3* GlobalUI.base_unit_graph);
+            })
             // opacity transition not necessary here
             .transition("fc")
             .duration(2200)
@@ -1181,22 +1180,22 @@ function join_enter_vertex(enter) {
       // on hover, the texts and circles of .vertex will grow in size by 1.4
       .on("mouseover", (e, _) => {
         //circle first
-        e.currentTarget
+        d3.select(e.currentTarget)
           .selectAll("circle")
           .attr("r", 1.4 * GlobalUI.base_unit_graph);
         // text should grow as well
-        e.currentTarget
+        d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `{1.4*GlobalUI.base_unit_graph}px`);
+          .attr("font-size", `${1.4*GlobalUI.base_unit_graph}`);
       })
       // on hover out, rebase to default
       .on("mouseout", (e, _) => {
-        e.currentTarget
+        d3.select(e.currentTarget)
           .selectAll("circle")
           .attr("r", 1 * GlobalUI.base_unit_graph);
-        e.currentTarget
+        d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `{1*GlobalUI.base_unit_graph}px`);
+          .attr("font-size", `${1*GlobalUI.base_unit_graph}`);
       })
   );
 }
