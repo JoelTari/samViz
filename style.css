@@ -29,32 +29,12 @@ svg {
   /* translate(0, -100%); */
 }
 
-.canvas {
-  /* scaleY(-1); */
-  /* position: absolute; */
-  /* top: 10vw; */
-  /* left: 10vw; */
-  /* margin: auto; */
-}
-
 /* text of svg should be re-flip to normal */
 /* Note use of selector between g and canvas : a g that descends directly from canva */
 /*   nothing (space selector) between g and text : a text that descends (depthly) from g  */
 .canvas > g text {
   transform: scaleY(-1);
 }
-
-/* .area { */
-/*   fill: #88a8af; */
-/*   /1* background-color: #88a8af; *1/ */
-/* } */
-
-/* .agent { */
-/*   fill: gold; */
-/*   stroke-width: 0.1; */
-/*   stroke: black; */
-/*   transition: fill 1s ease; */
-/* } */
 
 /******************************************/
 /*   LANDMARKS GROUND TRUTH  */
@@ -218,29 +198,14 @@ line.rt_line_to_last_pose {
 /*   VERTICES AND FACTORS  */
 /******************************************/
 
-/* .factor_graph { */
-/*   display: none; */
-/* } */
-/* .agent__odom { */
-/*   display: none; */
-/* } */
-.vertex ellipse {
-  display: none;
-}
-
 .vertex circle {
   fill: #f9f5d7;
   stroke: #928374;
-  /* stroke-width: 0.28; */
 }
 .vertex text {
   font-family: Monospace;
   cursor: default;
   opacity: 1;
-  /* font-size: 1px; */
-  /* CSS treats svg-text font-size px unit as default unit 
-   * (no unit doesnt work)
-   * So this is different that font-size outside svg*/
 }
 
 .vertex ellipse {
@@ -248,34 +213,18 @@ line.rt_line_to_last_pose {
   fill: #ece281;
   opacity: 0.4;
   transition: opacity 1s ease;
+  /* no display */
+  display: none;
 }
 .factor line {
   stroke: #7c6f64;
-  /* stroke-width: 0.2; */
-  /* opacity: 1; */
 }
 .factor circle {
-  fill: #7c6f64;
+  fill: #333;
+  stroke: #7c6f64;
   /* opacity: 1; */
 }
 
-/* hover */
-/* TODO: do it in javascript function, because */
-/* the dimensions are necessarily dependent on */
-/* each graph */
-.factor circle:hover {
-  /* stroke-width: 0.5; */
-  /* stroke: black; */
-  r: 0.55;
-}
-
-/* .vertex:hover circle { */
-/*   r: 1.4; */
-/* } */
-
-/* .vertex:hover text { */
-/*   font-size: 1.4px; */
-/* } */
 /******************************************/
 /*   GRAPH COLOR SPECIALIZATION BY AGENT  */
 /******************************************/
@@ -297,12 +246,6 @@ line.rt_line_to_last_pose {
 .factor_graph#r3 .vertex circle {
   stroke: #076678;
 }
-
-/* .factor_graph#r1 .factor line, */
-/* .factor_graph#r3 .factor line, */
-/* .factor_graph#r2 .factor line { */
-/*   stroke: #333; */
-/* } */
 
 /******************************************/
 /*                TOOLTIP                 */
@@ -366,21 +309,3 @@ div.tooltip {
 /* faded_purple     #8f3f71   [   ][purple]   96 */
 /* faded_aqua       #427b58   [   ]  [aqua]   66 */
 /* faded_orange     #af3a03   [   ][orange]  130 */
-
-/* pti test */
-.test_circle {
-  r: 3;
-  cx: 10; /* put this one if initial animation wanted */
-  stroke: black;
-  stroke-width: 0.2;
-  fill: silver;
-  transition: cx, cy, 2s; /* wow (and not active on creation)*/
-}
-
-.test_transf {
-  r: 3;
-  stroke: black;
-  stroke-width: 0.2;
-  fill: silver;
-  transition: transform 2s;
-}

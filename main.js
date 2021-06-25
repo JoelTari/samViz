@@ -102,7 +102,6 @@ client.on("connect", function () {
       console.log("[mqtt] subscribed to the topic >> estimation_graph");
     }
   });
-
 });
 
 // this event receive incoming mqtt topics (for which there is a subscription) and acts accordingly
@@ -114,8 +113,6 @@ client.on("message", function (topic, message) {
     // msg from meta_info should contain info such as agents, landmarks if any
     // or any other info that helps structure the DOM for the visualization
     // This is mandatory to use this topic when deviating from the base default
-    
-    
   } else if (topic == "ground_truth") {
     // This topic should be called in fact metaInfo or something when no ground truth is available
     // create the AgentTeam instanciate the robot objects
@@ -166,7 +163,6 @@ client.on("message", function (topic, message) {
   }
 });
 
-
 /******************************************************************************
  *                            Class AgentViz
  *****************************************************************************/
@@ -180,7 +176,6 @@ constructD3FactorGraph = function (d3container, robot_id) {
       g_factor_graph.append("g").classed("vertices_group", true);
     });
 };
-
 
 class BaseAgentViz {
   constructor(id, mqttc, parent_container) {
@@ -460,7 +455,7 @@ class fullAgentViz extends BaseAgentViz {
 }
 
 /******************************************************************************
-*                          Declaration of AgentTeam
+ *                          Declaration of AgentTeam
  *****************************************************************************/
 const AgentTeam = {
   checkSubscriptions: function (agent_id, topic_suffix, msg) {
@@ -802,7 +797,6 @@ constructD3MeasuresViz = function (d3container, robot_id) {
     .attr("id", robot_id);
 };
 
-
 /******************************************************************************
  *                          UPDATE PATTERN ROUTINES
  *                  enter,update,exit of the various d3 selections
@@ -1038,19 +1032,36 @@ function join_enter_factor(enter) {
               // (d) => (d.vars[0].mean.y + d.vars[1].mean.y) / 2
             )
             // .style("opacity", 0)
-            .attr("r", 0.3 * 2 * GlobalUI.base_unit_graph)
-            // on hover, the texts and circles of .vertex will grow in size by 1.4
-            .on("mouseover", (e, _) => {
+            .attr("r", 0.3 * 2 * GlobalUI.base_unit_graph) // *2 is transitory
+            .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph)
+            // on hover, dot-circle of factor grows and tooltip displays
+            .on("mouseover", (e, d) => {
               //circle first
-              d3.select(e.currentTarget)
-                .selectAll("circle")
-                .attr("r", 1.4*0.3*GlobalUI.base_unit_graph);
+              d3.select(e.currentTarget).attr(
+                "r",
+                1.4 * 0.3 * GlobalUI.base_unit_graph
+              );
+              // the tooltip
+              elDivTooltip
+                .style("left", `${e.pageX}px`)
+                .style("top", `${e.pageY - 6}px`)
+                .style("visibility", "visible")
+                // .transition() .duration(200)
+                .style("opacity", 0.9);
+              elDivTooltip.html(`${d.factor_id}`);
+              //
+              d3.select(e.currentTarget).style("cursor", "pointer");
             })
             // on hover out, rebase to default
             .on("mouseout", (e, _) => {
-              d3.select(e.currentTarget)
-                .selectAll("circle")
-                .attr("r", 1 *0.3* GlobalUI.base_unit_graph);
+              // retract the radius of the factor dot
+              d3.select(e.currentTarget).attr(
+                "r",
+                1 * 0.3 * GlobalUI.base_unit_graph
+              );
+              // hide the tooltip
+              d3.select(e.currentTarget).style("cursor", "default");
+              elDivTooltip.style("opacity", 0).style("visibility", "hidden");
             })
             // opacity transition not necessary here
             .transition("fc")
@@ -1149,7 +1160,7 @@ function join_enter_vertex(enter) {
             g.append("circle")
               .attr("r", GlobalUI.base_unit_graph * 3)
               .style("opacity", 0)
-              .attr("stroke-width", 0.28 * GlobalUI.base_unit_graph)
+              .attr("stroke-width", 0.12 * GlobalUI.base_unit_graph)
               .transition(t_vertex_entry)
               .attr("r", GlobalUI.base_unit_graph)
               .style("opacity", null);
@@ -1178,24 +1189,39 @@ function join_enter_vertex(enter) {
           });
       })
       // on hover, the texts and circles of .vertex will grow in size by 1.4
-      .on("mouseover", (e, _) => {
+      .on("mouseover", (e, d) => {
         //circle first
         d3.select(e.currentTarget)
           .selectAll("circle")
-          .attr("r", 1.4 * GlobalUI.base_unit_graph);
+          .attr("r", 1.4 * GlobalUI.base_unit_graph)
+          .attr("stroke-width", 0.28 * GlobalUI.base_unit_graph);
         // text should grow as well
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `${1.4*GlobalUI.base_unit_graph}`);
+          .attr("font-size", `${1.4 * GlobalUI.base_unit_graph}`);
+        // the tooltip
+        elDivTooltip
+          .style("left", `${e.pageX}px`)
+          .style("top", `${e.pageY - 6}px`)
+          .style("visibility", "visible")
+          // .transition() .duration(200)
+          .style("opacity", 0.9);
+        elDivTooltip.html(`${d.var_id}`);
+        //
+        d3.select(e.currentTarget).style("cursor", "pointer");
       })
       // on hover out, rebase to default
       .on("mouseout", (e, _) => {
         d3.select(e.currentTarget)
           .selectAll("circle")
+          .attr("stroke-width", 0.12 * GlobalUI.base_unit_graph)
           .attr("r", 1 * GlobalUI.base_unit_graph);
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `${1*GlobalUI.base_unit_graph}`);
+          .attr("font-size", `${1 * GlobalUI.base_unit_graph}`);
+        // hide the tooltip
+        d3.select(e.currentTarget).style("cursor", "default");
+        elDivTooltip.style("opacity", 0).style("visibility", "hidden");
       })
   );
 }
