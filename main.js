@@ -993,7 +993,7 @@ function join_enter_factor(enter) {
             d.vars.forEach((v) =>
               g
                 .append("line")
-                .attr("stroke-width", 0.2 * GlobalUI.base_unit_graph)
+                .attr("stroke-width", 0.15 * GlobalUI.base_unit_graph)
                 .attr("x1", d.dot_factor_position.x)
                 .attr("y1", d.dot_factor_position.y)
                 .attr("x2", 0.2 * v.mean.x + 0.8 * d.dot_factor_position.x)
@@ -1008,7 +1008,7 @@ function join_enter_factor(enter) {
           } else {
             // unifactor
             g.append("line")
-              .attr("stroke-width", 0.2 * GlobalUI.base_unit_graph)
+              .attr("stroke-width", 0.15 * GlobalUI.base_unit_graph)
               .attr("x1", d.dot_factor_position.x)
               .attr("y1", d.dot_factor_position.y)
               .attr("x2", d.dot_factor_position.x)
@@ -1040,7 +1040,8 @@ function join_enter_factor(enter) {
               d3.select(e.currentTarget).attr(
                 "r",
                 1.4 * 0.3 * GlobalUI.base_unit_graph
-              );
+              )
+              .attr("stroke-width", 0.1 * GlobalUI.base_unit_graph);
               // the tooltip
               elDivTooltip
                 .style("left", `${e.pageX}px`)
@@ -1049,7 +1050,7 @@ function join_enter_factor(enter) {
                 // .transition() .duration(200)
                 .style("opacity", 0.9);
               elDivTooltip.html(`${d.factor_id}`);
-              //
+              // cursor pointer
               d3.select(e.currentTarget).style("cursor", "pointer");
             })
             // on hover out, rebase to default
@@ -1058,7 +1059,8 @@ function join_enter_factor(enter) {
               d3.select(e.currentTarget).attr(
                 "r",
                 1 * 0.3 * GlobalUI.base_unit_graph
-              );
+              )
+              .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph);
               // hide the tooltip
               d3.select(e.currentTarget).style("cursor", "default");
               elDivTooltip.style("opacity", 0).style("visibility", "hidden");
@@ -1172,7 +1174,7 @@ function join_enter_vertex(enter) {
               .attr("alignment-baseline", "central")
               .style("opacity", 0)
               .transition(t_vertex_entry)
-              .attr("font-size", GlobalUI.base_unit_graph)
+              .attr("font-size", ((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph)
               .style("opacity", null);
             // covariance (-> a rotated group that holds an ellipse)
             g.append("g")
@@ -1198,7 +1200,7 @@ function join_enter_vertex(enter) {
         // text should grow as well
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `${1.4 * GlobalUI.base_unit_graph}`);
+          .attr("font-size", 1.4*((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph);
         // the tooltip
         elDivTooltip
           .style("left", `${e.pageX}px`)
@@ -1211,14 +1213,14 @@ function join_enter_vertex(enter) {
         d3.select(e.currentTarget).style("cursor", "pointer");
       })
       // on hover out, rebase to default
-      .on("mouseout", (e, _) => {
+      .on("mouseout", (e, d) => {
         d3.select(e.currentTarget)
           .selectAll("circle")
           .attr("stroke-width", 0.12 * GlobalUI.base_unit_graph)
           .attr("r", 1 * GlobalUI.base_unit_graph);
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", `${1 * GlobalUI.base_unit_graph}`);
+          .attr("font-size", ((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph);
         // hide the tooltip
         d3.select(e.currentTarget).style("cursor", "default");
         elDivTooltip.style("opacity", 0).style("visibility", "hidden");
