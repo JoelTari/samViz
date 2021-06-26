@@ -22,8 +22,7 @@ const elCanvas = d3.select("svg.canvas");
 const elDivTooltip = d3
   .select("body")
   .append("div")
-  .classed("tooltip", true)
-  .style("opacity", 0);
+  .classed("tooltip", true);
 
 const aratio = 0.6;
 
@@ -63,20 +62,9 @@ let elsLandmark = elLandmarks.selectAll(".landmark");
 //       .attr("cy", ([, y]) => y)
 //       .attr("r", 1.5);
 
-// const zoom = d3.zoom()
-//       .scaleExtent([1, 40])
-//       .on("zoom", zoomed);
+const zoom = d3.zoom().scaleExtent([0.1, 40]).on("zoom", zoomed);
 
-elCanvas.call(
-  d3
-    .zoom()
-    .extent([
-      [-300, -180],
-      [300, 180],
-    ])
-    .scaleExtent([0.1, 40])
-    .on("zoom", zoomed)
-);
+elCanvas.call(zoom);
 
 function zoomed({ transform }) {
   elMainGroup.attr("transform", transform);
@@ -967,7 +955,6 @@ function join_update_robot_estimates(update) {
 }
 
 function join_enter_factor(enter) {
-  // TODO:
   // Imho best way to avoid to define those transitions everywhere is to
   // transform those functions in classes of which the transitions are members
   const t_factor_entry = d3.transition().duration(400);
@@ -1037,33 +1024,41 @@ function join_enter_factor(enter) {
             // on hover, dot-circle of factor grows and tooltip displays
             .on("mouseover", (e, d) => {
               //circle first
-              d3.select(e.currentTarget).attr(
-                "r",
-                1.4 * 0.3 * GlobalUI.base_unit_graph
-              )
-              .attr("stroke-width", 0.1 * GlobalUI.base_unit_graph);
+              d3.select(e.currentTarget)
+                .attr("r", 1.4 * 0.3 * GlobalUI.base_unit_graph)
+                .attr("stroke-width", 0.1 * GlobalUI.base_unit_graph);
               // the tooltip
               elDivTooltip
                 .style("left", `${e.pageX}px`)
                 .style("top", `${e.pageY - 6}px`)
                 .style("visibility", "visible")
-                // .transition() .duration(200)
-                .style("opacity", 0.9);
-              elDivTooltip.html(`${d.factor_id}`);
+                .html(`<p class="tooltip-title">
+                        <strong><em>${d.factor_id}</em></strong>
+                       </p>
+                       <br>
+                       <span class="tooltip-field"><strong>Type</strong></span>: 
+                       <span class="tooltip-value">${d.type}</span>
+                       <br>
+                       <span class="tooltip-field"><strong>Vars</strong></span>: 
+                       <span class="tooltip-value">${d.vars_id}</span>
+                       `);
               // cursor pointer
               d3.select(e.currentTarget).style("cursor", "pointer");
             })
+            .on("mousemove", e => 
+              elDivTooltip
+                .style("top", e.pageY  + "px")
+                .style("left", e.pageX  + "px")
+            )
             // on hover out, rebase to default
             .on("mouseout", (e, _) => {
               // retract the radius of the factor dot
-              d3.select(e.currentTarget).attr(
-                "r",
-                1 * 0.3 * GlobalUI.base_unit_graph
-              )
-              .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph);
+              d3.select(e.currentTarget)
+                .attr("r", 1 * 0.3 * GlobalUI.base_unit_graph)
+                .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph);
               // hide the tooltip
               d3.select(e.currentTarget).style("cursor", "default");
-              elDivTooltip.style("opacity", 0).style("visibility", "hidden");
+              elDivTooltip.style("visibility", "hidden");
             })
             // opacity transition not necessary here
             .transition("fc")
@@ -1174,7 +1169,10 @@ function join_enter_vertex(enter) {
               .attr("alignment-baseline", "central")
               .style("opacity", 0)
               .transition(t_vertex_entry)
-              .attr("font-size", ((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph)
+              .attr(
+                "font-size",
+                ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
+              )
               .style("opacity", null);
             // covariance (-> a rotated group that holds an ellipse)
             g.append("g")
@@ -1200,18 +1198,31 @@ function join_enter_vertex(enter) {
         // text should grow as well
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", 1.4*((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph);
+          .attr(
+            "font-size",
+            1.4 * ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
+          );
         // the tooltip
         elDivTooltip
           .style("left", `${e.pageX}px`)
           .style("top", `${e.pageY - 6}px`)
           .style("visibility", "visible")
-          // .transition() .duration(200)
-          .style("opacity", 0.9);
-        elDivTooltip.html(`${d.var_id}`);
-        //
+          .html(`<p class="tooltip-title">
+                  <strong><em>${d.var_id}</em></strong>
+                 </p>
+                 <br>
+                 <span class="tooltip-field"><strong>Mean</strong></span>: 
+                 <span class="tooltip-value">${JSON.stringify(d.mean,(k,v)=>v.toPrecision?v.toPrecision(4):v,"\t")}</span>
+                 `);
+        // TODO GlobalUI should set the precision
+        // cursor
         d3.select(e.currentTarget).style("cursor", "pointer");
       })
+      .on("mousemove", e => 
+        elDivTooltip
+          .style("top", e.pageY  + "px")
+          .style("left", e.pageX  + "px")
+      )
       // on hover out, rebase to default
       .on("mouseout", (e, d) => {
         d3.select(e.currentTarget)
@@ -1220,10 +1231,13 @@ function join_enter_vertex(enter) {
           .attr("r", 1 * GlobalUI.base_unit_graph);
         d3.select(e.currentTarget)
           .selectAll("text")
-          .attr("font-size", ((3 - d.var_id.length)/6+1)*GlobalUI.base_unit_graph);
+          .attr(
+            "font-size",
+            ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
+          );
         // hide the tooltip
         d3.select(e.currentTarget).style("cursor", "default");
-        elDivTooltip.style("opacity", 0).style("visibility", "hidden");
+        elDivTooltip.style("visibility", "hidden");
       })
   );
 }
