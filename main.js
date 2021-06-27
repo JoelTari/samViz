@@ -19,10 +19,7 @@
 const elBody = d3.select("body");
 const elCanvas = d3.select("svg.canvas");
 // Define the div for the tooltip
-const elDivTooltip = d3
-  .select("body")
-  .append("div")
-  .classed("tooltip", true);
+const elDivTooltip = d3.select("body").append("div").classed("tooltip", true);
 
 const aspect_ratio = 0.6;
 
@@ -198,38 +195,59 @@ class BaseAgentViz {
     //        Then, the globalUI retrieve the left/right/top/bottom-most values
     //        among the agent-team, and that is what defines the XY-aligned
     //        bounding-box (so that we see all graphs)
-    const max_x=graph.marginals.reduce((max_so_far,current_marginal)=>
-                                        Math.max(max_so_far,current_marginal.mean.x)
-                                        , -Infinity);
-    const min_x=graph.marginals.reduce((min_so_far,current_marginal)=>
-                                        Math.min(min_so_far,current_marginal.mean.x)
-                                        , Infinity);
-    const max_y=graph.marginals.reduce((max_so_far,current_marginal)=>
-                                        Math.max(max_so_far,current_marginal.mean.y)
-                                        , -Infinity);
-    const min_y=graph.marginals.reduce((min_so_far,current_marginal)=>
-                                        Math.min(min_so_far,current_marginal.mean.y)
-                                        , Infinity);
+
+    //      Naive method to get the bounding box
+    // const max_x=graph.marginals.reduce((max_so_far,current_marginal)=>
+    //                                     Math.max(max_so_far,current_marginal.mean.x)
+    //                                     , -Infinity);
+    // const min_x=graph.marginals.reduce((min_so_far,current_marginal)=>
+    //                                     Math.min(min_so_far,current_marginal.mean.x)
+    //                                     , Infinity);
+    // const max_y=graph.marginals.reduce((max_so_far,current_marginal)=>
+    //                                     Math.max(max_so_far,current_marginal.mean.y)
+    //                                     , -Infinity);
+    // const min_y=graph.marginals.reduce((min_so_far,current_marginal)=>
+    //                                     Math.min(min_so_far,current_marginal.mean.y)
+    //                                     , Infinity);
+    // console.log(`Bounding box is [${min_x.toFixed(2)}, ${min_y.toFixed(2)}, ${max_x.toFixed(2)}, ${max_y.toFixed(2)}]`)
+
+    // trying to compute the bounding-box in one loop
+    const [mx, Mx, my, My] = graph.marginals.reduce(
+      (tmp_bb, cur) => [
+        Math.min(tmp_bb[0], cur.mean.x),
+        Math.max(tmp_bb[1], cur.mean.x),
+        Math.min(tmp_bb[2], cur.mean.y),
+        Math.max(tmp_bb[3], cur.mean.y),
+      ],
+      [Infinity, -Infinity, Infinity, -Infinity]
+    );
+
+    // console.log(`Bounding box is [${mx.toFixed(2)}, ${my.toFixed(2)}, ${Mx.toFixed(2)}, ${My.toFixed(2)}]`)
+
+    // The axis that has the longuest span imposes the scale on the zoom.
+    // Note that the vertical span must also be corrected by the aspect ratio 
+    // of the viewbox.
+    // A 1.2 coef is applied to obtain some margin around the bounding-box
+    const scaleValue = 1.0 / (1.2*Math.max(Mx-mx, (My-my) * aspect_ratio));
     
-    const center_view_x=(max_x+min_x)/2;
-    const center_view_y=(max_y+min_y)/2;
-    const spanX=(max_x-min_x)*1.2; // provide some 10% margin on each side
-    const spanY=(max_y-min_y)*1.2; 
-    // the axis that has the longuest span imposes the scale on the zoom,
-    // but the span must be corrected first by the aspect ratio of the viewbox
-    const scaleValue = 1.0/(Math.max(spanX,spanY*aspect_ratio))
-    const translateValueX=center_view_x;
-    const translateValueY=center_view_y;
+    // translate value are the center , 
+    // (but with minus, as its a transform applied to the target zoom)
+    const translateValueX = -(mx + Mx) / 2;
+    const translateValueY = -(my + My) / 2;
 
-    elCanvas
-      .transition()
-      .duration(500)
-      .call(zoom.transform
-        ,d3.zoomIdentity
-             .scale(scaleValue)   // note the minus signs
-             .translate(-translateValueX,-translateValueY)); 
+    // apply the zoom transform
+    elCanvas.transition().duration(500).call(
+      zoom.transform,
+      d3.zoomIdentity
+        .scale(scaleValue) // note the minus signs
+        .translate(translateValueX, translateValueY)
+    );
 
-    // massage data: in order to define the 
+    // massage data: the dot factor positions must be explicitly computed here:
+    //    - when a factor connects 2 or more variables: position = barycenter
+    //    - when a factor connects only 1 variable: try to find an intuitive positioning
+    //                                              that depends on the other factors 
+    //                                              linked to that variable 
     estimation_data_massage(graph);
 
     // general update pattern
@@ -1052,8 +1070,7 @@ function join_enter_factor(enter) {
               elDivTooltip
                 .style("left", `${e.pageX}px`)
                 .style("top", `${e.pageY - 6}px`)
-                .style("visibility", "visible")
-                .html(`<p class="tooltip-title">
+                .style("visibility", "visible").html(`<p class="tooltip-title">
                         <strong><em>${d.factor_id}</em></strong>
                        </p>
                        <br>
@@ -1066,10 +1083,10 @@ function join_enter_factor(enter) {
               // cursor pointer
               d3.select(e.currentTarget).style("cursor", "pointer");
             })
-            .on("mousemove", e => 
+            .on("mousemove", (e) =>
               elDivTooltip
-                .style("top", e.pageY  + "px")
-                .style("left", e.pageX  + "px")
+                .style("top", e.pageY + "px")
+                .style("left", e.pageX + "px")
             )
             // on hover out, rebase to default
             .on("mouseout", (e, _) => {
@@ -1227,22 +1244,23 @@ function join_enter_vertex(enter) {
         elDivTooltip
           .style("left", `${e.pageX}px`)
           .style("top", `${e.pageY - 6}px`)
-          .style("visibility", "visible")
-          .html(`<p class="tooltip-title">
+          .style("visibility", "visible").html(`<p class="tooltip-title">
                   <strong><em>${d.var_id}</em></strong>
                  </p>
                  <br>
                  <span class="tooltip-field"><strong>Mean</strong></span>: 
-                 <span class="tooltip-value">${JSON.stringify(d.mean,(k,v)=>v.toPrecision?v.toPrecision(4):v,"\t")}</span>
+                 <span class="tooltip-value">${JSON.stringify(
+                   d.mean,
+                   (k, v) => (v.toPrecision ? v.toPrecision(4) : v),
+                   "\t"
+                 )}</span>
                  `);
         // TODO GlobalUI should set the precision
         // cursor
         d3.select(e.currentTarget).style("cursor", "pointer");
       })
-      .on("mousemove", e => 
-        elDivTooltip
-          .style("top", e.pageY  + "px")
-          .style("left", e.pageX  + "px")
+      .on("mousemove", (e) =>
+        elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
       )
       // on hover out, rebase to default
       .on("mouseout", (e, d) => {
