@@ -45,24 +45,8 @@ let elsLandmark = elLandmarks.selectAll(".landmark");
 /******************************************************************************
  *                            D3 ZOOM
  *****************************************************************************/
-// scat_data = {
-//   const randomX : d3.randomNormal(100 / 2, 80);
-//   const randomY : d3.randomNormal(60 / 2, 80);
-//   return Array.from({length: 2000}, () => [randomX(), randomY()]);
-// }
-
-// const scat_data = gen_scat_data()
-
-// const gscat = elCanvas.append('gscat')
-
-// gscat.selectAll("circle")
-//     .data(data)
-//     .join("circle")
-//       .attr("cx", ([x]) => x)
-//       .attr("cy", ([, y]) => y)
-//       .attr("r", 1.5);
-
-const zoom = d3.zoom().scaleExtent([0.1, 40]).on("zoom", zoomed);
+const zoom = d3.zoom().on("zoom", zoomed);
+//.scaleExtent([0.1, 40]) Use scaleExtent later
 
 elCanvas.call(zoom);
 
@@ -208,7 +192,26 @@ class BaseAgentViz {
     if (graph.header.base_unit != null)
       GlobalUI.base_unit_graph = graph.header.base_unit;
 
-    // massage data
+    // ULTRA-TEMPORARY: new zoom is set manually
+    // TODO: programatically define it:
+    //        get, for this graph, the left/right/top/bottom-most values
+    //        save them in the Agent Class
+    //        Then, the globalUI retrieve the left/right/top/bottom-most values
+    //        among the agent-team, and that is what defines the XY-aligned
+    //        bounding-box (so that we see all graphs)
+    const scaleValue=1.0/12;
+    const translateValueX=4;
+    const translateValueY=2;
+
+    elCanvas
+      .transition()
+      .duration(500)
+      .call(zoom.transform
+        ,d3.zoomIdentity
+             .scale(scaleValue)   // note the minus signs
+             .translate(-translateValueX,-translateValueY)); 
+
+    // massage data:
     estimation_data_massage(graph);
 
     // general update pattern
