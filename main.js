@@ -24,7 +24,7 @@ const elDivTooltip = d3
   .append("div")
   .classed("tooltip", true);
 
-const aratio = 0.6;
+const aspect_ratio = 0.6;
 
 // initially no robot is selected
 GlobalUI = {
@@ -192,16 +192,34 @@ class BaseAgentViz {
     if (graph.header.base_unit != null)
       GlobalUI.base_unit_graph = graph.header.base_unit;
 
-    // ULTRA-TEMPORARY: new zoom is set manually
-    // TODO: programatically define it:
+    // This part define a zoom transform that is relevant, based on the new data
     //        get, for this graph, the left/right/top/bottom-most values
     //        save them in the Agent Class
     //        Then, the globalUI retrieve the left/right/top/bottom-most values
     //        among the agent-team, and that is what defines the XY-aligned
     //        bounding-box (so that we see all graphs)
-    const scaleValue=1.0/12;
-    const translateValueX=4;
-    const translateValueY=2;
+    const max_x=graph.marginals.reduce((max_so_far,current_marginal)=>
+                                        Math.max(max_so_far,current_marginal.mean.x)
+                                        , -Infinity);
+    const min_x=graph.marginals.reduce((min_so_far,current_marginal)=>
+                                        Math.min(min_so_far,current_marginal.mean.x)
+                                        , Infinity);
+    const max_y=graph.marginals.reduce((max_so_far,current_marginal)=>
+                                        Math.max(max_so_far,current_marginal.mean.y)
+                                        , -Infinity);
+    const min_y=graph.marginals.reduce((min_so_far,current_marginal)=>
+                                        Math.min(min_so_far,current_marginal.mean.y)
+                                        , Infinity);
+    
+    const center_view_x=(max_x+min_x)/2;
+    const center_view_y=(max_y+min_y)/2;
+    const spanX=(max_x-min_x)*1.2; // provide some 10% margin on each side
+    const spanY=(max_y-min_y)*1.2; 
+    // the axis that has the longuest span imposes the scale on the zoom,
+    // but the span must be corrected first by the aspect ratio of the viewbox
+    const scaleValue = 1.0/(Math.max(spanX,spanY*aspect_ratio))
+    const translateValueX=center_view_x;
+    const translateValueY=center_view_y;
 
     elCanvas
       .transition()
@@ -211,7 +229,7 @@ class BaseAgentViz {
              .scale(scaleValue)   // note the minus signs
              .translate(-translateValueX,-translateValueY)); 
 
-    // massage data:
+    // massage data: in order to define the 
     estimation_data_massage(graph);
 
     // general update pattern
