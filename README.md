@@ -79,7 +79,7 @@ The web page should appear in your default browser.
 
 ```
 cd examples
-mosquitto_sub -t default/graphs -m $(cat hello_graph.json)
+mosquitto_pub -t default/graphs -m $(cat hello_graph.json)
 ```
 
 ### Python
