@@ -1,35 +1,38 @@
 #!/usr/bin/python3
 
+# Copyright 2021 AKKA Technologies (joel.tari-summerfield@akka.eu)
+
+# Licensed under the EUPL, Version 1.2 or – as soon they will be approved by
+# the European Commission - subsequent versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the Licence.
+# You may obtain a copy of the Licence at:
+
+# https://joinup.ec.europa.eu/software/page/eupl
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the Licence is distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the Licence for the specific language governing permissions and
+# limitations under the Licence.
+
+
+
+# This program shows how to use the paho.mqtt library to send a json-formatted
+# graph to samViz.
+# While this code doesn't explicitly subscribe to any topic (only publish one 
+# msg). The on_message() method and the looping are left for reference.
+
+# For more info on paho.mqtt, go to: https://pypi.org/project/paho-mqtt
+
+
 import paho.mqtt.client as mqtt
-# import time
 import json
 import sys
-# import numpy as np
-# import copy
-# import math
-# import random as rd
-# import numpy.random as nprd
 
 # ----------------------------------------------------------------------------
 #                           Globals
 # ----------------------------------------------------------------------------
-# some mqtt related globals
 broker = 'localhost'
-
-# cmd_topic = 'cmd'
-# cmd_feedback_topic = 'cmd_feedback'
-# measures_topic = 'measures_feedback'
-# request_ground_truth_topic = 'request_ground_truth'
-# ground_truth_topic = 'ground_truth'
-# request_position_ini_topic = 'request_position_ini'
-# position_ini_topic = 'position_ini'
-
-
-# ----------------------------------------------------------------------------
-#                        User defined callback functions
-# ----------------------------------------------------------------------------
-
-
 
 # ----------------------------------------------------------------------------
 #         mqtt layer callbacks overrides (not yet users callbacks)
@@ -57,10 +60,8 @@ def on_disconnect(client, userdata, flags, rc=0):
 def on_message(client, userdata, message):
     print("Received message '" + str(message.payload) + "' on topic '"
           + message.topic + "' with QoS " + str(message.qos) + "'\n")
-
     # decode payload as string
     msg = message.payload.decode('utf-8')
-
     # manage subscriptions here
 
 
