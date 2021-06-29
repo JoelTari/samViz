@@ -15,8 +15,10 @@
  * limitations under the Licence.
  */
 
-// viewbox values
-const viewbox=[-0.5,-0.3,1,0.6];
+// viewbox and aspect ratio values, this assume we start the viz centered
+// around origin, with unit-sized-width
+const aspect_ratio = 0.6;
+const viewbox=[-1/2.0,-aspect_ratio/2.0,1.0,aspect_ratio];
 
 // DOM related
 const elBody = d3.select("body");
@@ -25,7 +27,6 @@ const elAxes= d3.select('svg .axes');
 // Define the div for the tooltip
 const elDivTooltip = d3.select("body").append("div").classed("tooltip", true);
 
-const aspect_ratio = 0.6;
 
 // initially no robot is selected
 GlobalUI = {
@@ -47,16 +48,28 @@ let elsLandmark = elLandmarks.selectAll(".landmark");
  *                            D3 ZOOM
  *****************************************************************************/
 const zoom = d3.zoom().on("zoom", zoomed);
-//.scaleExtent([0.1, 40]) Use scaleExtent later
 
 elSvg.call(zoom);
 
 function zoomed({ transform }) {
+  // apply the zoom transform to the main group
   elMainGroup.attr("transform", transform);
+  // rescale the axes x & y
+  const sc_xz = transform.rescaleX(sc_x);
+  const sc_yz = transform.rescaleY(sc_y);
+
+  // adjust the axis-object for the new scale
+  // & re-apply the axis-object on the axis-dom-element 
+  elAxes.select('.Xaxis-bot').call(xaxis_bot.scale(sc_xz));
+  elAxes.select('.Xaxis-top').call(xaxis_top.scale(sc_xz));
+  elAxes.select('.Yaxis-left').call(yaxis_left.scale(sc_yz));
+  elAxes.select('.Yaxis-right').call(yaxis_right.scale(sc_yz));
+
+  // (currently in CSS)
+  // elAxes.selectAll('text').attr('font-size','0.007px')
+  // elAxes.selectAll('path').attr('stroke-width',0.0004)
+  // elAxes.selectAll('line').attr('stroke-width',0.0004)
 }
-
-// TODO: the zoom must change the scale and ticks of the axes
-
 
 /******************************************************************************
  *                            D3 Axes and Scales
@@ -70,23 +83,25 @@ let xaxis_bot=d3.axisTop(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the
                .tickPadding(0.005) // how far the text is from axis (normal direction)
                .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
                .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0) // no offset between path and lines
+               .offset(0); // no offset between path and lines
+
 let xaxis_top=d3.axisBottom(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
                .tickPadding(0.005) // how far the text is from axis (normal direction)
                .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
                .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0) // no offset between path and lines
+               .offset(0); // no offset between path and lines
+
 let yaxis_left= d3.axisRight(sc_y)// right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward
                .tickPadding(0.005) // how far the text is from axis (normal direction)
                .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
                .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0) // no offset between path and lines
+               .offset(0); // no offset between path and lines
 
 let yaxis_right= d3.axisLeft(sc_y) // right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward 
                .tickPadding(0.005) // how far the text is from axis (normal direction)
                .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
                .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0) // no offset between path and lines
+               .offset(0); // no offset between path and lines
 
 // generate the axes elements from the d3-axis object
 elAxes.select('.Xaxis-top').attr("transform", "translate(0,0.3)").call(xaxis_top);
@@ -94,10 +109,10 @@ elAxes.select('.Xaxis-bot').attr("transform", "translate(0,-0.3)").call(xaxis_bo
 elAxes.select('.Yaxis-left').attr("transform","translate(-0.5,0)").call(yaxis_left);
 elAxes.select('.Yaxis-right').attr("transform","translate(0.5,0)").call(yaxis_right);
 
-// additional configuration:
-elAxes.selectAll('text').attr('font-size','0.007px')
-elAxes.selectAll('path').attr('stroke-width',0.0004)
-elAxes.selectAll('line').attr('stroke-width',0.0004)
+// (currently in CSS)
+// elAxes.selectAll('text').attr('font-size','0.007px')
+// elAxes.selectAll('path').attr('stroke-width',0.0004)
+// elAxes.selectAll('line').attr('stroke-width',0.0004)
 
 /******************************************************************************
  *                            MQTT events

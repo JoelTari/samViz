@@ -37,14 +37,24 @@ svg.svg-content {
   transform: scaleY(-1);
 }
 
+/******************************************/
+/*              Axes                       
+/******************************************/
 svg .axes {
   opacity: 0.5;
-  /* transform: translate(-50%, -50%); */
+}
+
+svg .axes path,
+svg .axes line {
+  /* this might called in the script at some future point */
+  /* when/if responsiveness needs to be fixed */
+  stroke-width: 0.0004;
 }
 
 svg .axes text {
-  /* TODO: hidden is temporary until scaling with zoom is fixed*/
-  visibility: hidden;
+  /* this might called in the script at some future point */
+  /* when/if responsiveness needs to be fixed */
+  font-size: 0.007px;
 }
 
 /******************************************/
