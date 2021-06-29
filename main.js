@@ -15,9 +15,13 @@
  * limitations under the Licence.
  */
 
+// viewbox values
+const viewbox=[-0.5,-0.3,1,0.6];
+
 // DOM related
 const elBody = d3.select("body");
-const elCanvas = d3.select("svg.canvas");
+const elSvg = d3.select("svg.svg-content").attr('viewBox',viewbox.toString());
+const elAxes= d3.select('svg .axes');
 // Define the div for the tooltip
 const elDivTooltip = d3.select("body").append("div").classed("tooltip", true);
 
@@ -45,11 +49,55 @@ let elsLandmark = elLandmarks.selectAll(".landmark");
 const zoom = d3.zoom().on("zoom", zoomed);
 //.scaleExtent([0.1, 40]) Use scaleExtent later
 
-elCanvas.call(zoom);
+elSvg.call(zoom);
 
 function zoomed({ transform }) {
   elMainGroup.attr("transform", transform);
 }
+
+// TODO: the zoom must change the scale and ticks of the axes
+
+
+/******************************************************************************
+ *                            D3 Axes and Scales
+ *****************************************************************************/
+
+// Define the axes with 1:1 scales
+let sc_x = d3.scaleLinear().domain([-0.5,0.5]).nice().range([-0.5,0.5]);
+let sc_y = d3.scaleLinear().domain([-0.3,0.3]).nice().range([-0.3,0.3]);
+// define the axes objects, based on the scale, and adjust for the default viewbox
+let xaxis_bot=d3.axisTop(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
+               .tickPadding(0.005) // how far the text is from axis (normal direction)
+               .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
+               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
+               .offset(0) // no offset between path and lines
+let xaxis_top=d3.axisBottom(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
+               .tickPadding(0.005) // how far the text is from axis (normal direction)
+               .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
+               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
+               .offset(0) // no offset between path and lines
+let yaxis_left= d3.axisRight(sc_y)// right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward
+               .tickPadding(0.005) // how far the text is from axis (normal direction)
+               .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
+               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
+               .offset(0) // no offset between path and lines
+
+let yaxis_right= d3.axisLeft(sc_y) // right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward 
+               .tickPadding(0.005) // how far the text is from axis (normal direction)
+               .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
+               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
+               .offset(0) // no offset between path and lines
+
+// generate the axes elements from the d3-axis object
+elAxes.select('.Xaxis-top').attr("transform", "translate(0,0.3)").call(xaxis_top);
+elAxes.select('.Xaxis-bot').attr("transform", "translate(0,-0.3)").call(xaxis_bot);
+elAxes.select('.Yaxis-left').attr("transform","translate(-0.5,0)").call(yaxis_left);
+elAxes.select('.Yaxis-right').attr("transform","translate(0.5,0)").call(yaxis_right);
+
+// additional configuration:
+elAxes.selectAll('text').attr('font-size','0.007px')
+elAxes.selectAll('path').attr('stroke-width',0.0004)
+elAxes.selectAll('line').attr('stroke-width',0.0004)
 
 /******************************************************************************
  *                            MQTT events
@@ -236,12 +284,20 @@ class BaseAgentViz {
     const translateValueY = -(my + My) / 2;
 
     // apply the zoom transform
-    elCanvas.transition().duration(500).call(
+    elSvg.transition().duration(500).call(
       zoom.transform,
       d3.zoomIdentity
-        .scale(scaleValue) // note the minus signs
+        .scale(scaleValue) 
         .translate(translateValueX, translateValueY)
     );
+    // apply the axis transform TODO
+    // d3.select('.testaxis')
+    //   .call(
+    //   zoom.transform,
+    //   d3.zoomIdentity
+    //     .scale(scaleValue) 
+    //     // .translate(translateValueX, translateValueY)
+    // );
 
     // massage data: the dot factor positions must be explicitly computed here:
     //    - when a factor connects 2 or more variables: position = barycenter
@@ -556,7 +612,7 @@ elBody.on("keydown", (e) => {
   );
 });
 
-elCanvas.on("click", (e) => console.log(d3.pointer(e, elMainGroup.node())));
+elSvg.on("click", (e) => console.log(d3.pointer(e, elMainGroup.node())));
 
 elBody.on("keyup", (e) => (keyPressedBuffer[e.key] = false));
 

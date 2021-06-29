@@ -16,12 +16,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  display: inline-block;
   height: 100vh;
   overflow: hidden;
   margin: 0;
 }
 
-svg {
+svg.svg-content {
   background: #eee;
   /* background: #fbf9e7; */
   border: 2px solid black;
@@ -30,10 +31,20 @@ svg {
 }
 
 /* text of svg should be re-flip to normal */
-/* Note use of selector between g and canvas : a g that descends directly from canva */
+/* Note use of selector between g and .svg-content : a g that descends directly from .svg-content */
 /*   nothing (space selector) between g and text : a text that descends (depthly) from g  */
-.canvas > g text {
+.svg-content > g text {
   transform: scaleY(-1);
+}
+
+svg .axes {
+  opacity: 0.5;
+  /* transform: translate(-50%, -50%); */
+}
+
+svg .axes text {
+  /* TODO: hidden is temporary until scaling with zoom is fixed*/
+  visibility: hidden;
 }
 
 /******************************************/
