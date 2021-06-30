@@ -1118,10 +1118,6 @@ function join_enter_factor(enter) {
     .attr("id", (d) => d.factor_id)
     .each(function (d) {
       d3.select(this)
-        .append("g")
-        .attr("transform", "translate(0,0)")
-        .append("g")
-        .attr("transform", "rotate(0)")
         .style("opacity", 0)
         .transition(t_factor_entry) // ugly (im interest in the child opacity not this node) but necessary to run concurrent transitions on the line (which doesnt work if I place it below)
         .style("opacity", null)
@@ -1228,8 +1224,6 @@ function join_update_factor(update) {
 
   return update.each(function (d) {
     d3.select(this)
-      .select("g")
-      .select("g")
       .selectAll("line")
       // .selectChildren("line")
       // .selectChild("line") // TODO: all children
@@ -1269,11 +1263,8 @@ function join_update_factor(update) {
 function join_exit_factor(exit) {
   return (
     exit
-      // .call((ex) =>
-      //   ex
-      .select("g")
       .call(function (ex) {
-        ex.select("g").selectAll("line").style("stroke", "brown");
+        ex.selectAll("line").style("stroke", "brown");
         ex.select("circle").style("fill", "brown");
       })
       // .selectAll("line")
