@@ -34,6 +34,21 @@ GlobalUI = {
   base_unit_graph: 1, // unit that controls the dimensions of the graph
   // (set when receiving a graph and getting a medium distance between the nodes)
   // this is the default setting, it can instead be set by the message header of graph
+  excess_zoom_compensator: 1, // different than 1 when zoom too much/too little
+  dim:{
+    factor_dot_r: 0.3,
+    factor_dot_r_mouseover: 0.42,
+    factor_dot_width: 0.05,
+    factor_dot_width_mouseover: 0.1,
+    factor_line_width: 0.15,
+    vertex_circle_r:1,
+    vertex_circle_width:0.12,
+    // 1340 font-size, mouseover vertex, mousemv etc..
+    vertex_font_size: function(str_size){return (3 - str_size) / 6 + 1;},
+  },
+  get_unified_scaling_coefficient: function(){
+    return this.base_unit_graph*this.excess_zoom_compensator;
+  }
 };
 /******************************************************************************
  *                           SVG Group binding to d3
@@ -51,9 +66,21 @@ const zoom = d3.zoom().on("zoom", zoomed);
 
 elSvg.call(zoom);
 
+// handler that receive the zoom transform, and apply it to elements
 function zoomed({ transform }) {
   // apply the zoom transform to the main group
   elMainGroup.attr("transform", transform);
+  const max_scale=0.2; // TODO: automate this max_scale: based on an ideal font maybe
+  if (transform.k > max_scale){
+    // must compensate for excessive scaling
+    GlobalUI.excess_zoom_compensator = max_scale/transform.k;
+    update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
+  }
+  else{
+    GlobalUI.excess_zoom_compensator = 1;
+    update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
+  }
+
   // rescale the axes x & y
   const sc_xz = transform.rescaleX(sc_x);
   const sc_yz = transform.rescaleY(sc_y);
@@ -69,6 +96,20 @@ function zoomed({ transform }) {
   // elAxes.selectAll('text').attr('font-size','0.007px')
   // elAxes.selectAll('path').attr('stroke-width',0.0004)
   // elAxes.selectAll('line').attr('stroke-width',0.0004)
+}
+
+// it's like an update, but outside the d3js pattern as there are no new data per say,
+// but some dimensional aspect of the graph need to change to ease the viz experience
+// (due to excessive zoom for example)
+function update_graph_dimensions( coef ){
+    d3.selectAll('.factor circle').attr('r',GlobalUI.dim.factor_dot_r*coef)
+                                  .attr('stroke-width',GlobalUI.dim.factor_dot_width*coef);
+
+    d3.selectAll('.factor line').attr('stroke-width',GlobalUI.dim.factor_line_width*coef);
+
+    d3.selectAll('.vertex circle').attr('r',GlobalUI.dim.vertex_circle_r*coef)
+                                  .attr('stroke-width',GlobalUI.dim.vertex_circle_width*coef);
+    d3.selectAll('.vertex text').attr('font-size',d => GlobalUI.dim.vertex_font_size(d.var_id.length)*coef)
 }
 
 /******************************************************************************
@@ -299,7 +340,7 @@ class BaseAgentViz {
     const translateValueY = -(my + My) / 2;
 
     // apply the zoom transform
-    elSvg.transition().duration(500).call(
+    elSvg.transition().duration(1500).call(
       zoom.transform,
       d3.zoomIdentity
         .scale(scaleValue) 
@@ -1090,7 +1131,7 @@ function join_enter_factor(enter) {
             d.vars.forEach((v) =>
               g
                 .append("line")
-                .attr("stroke-width", 0.15 * GlobalUI.base_unit_graph)
+                .attr("stroke-width", GlobalUI.dim.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
                 .attr("x1", d.dot_factor_position.x)
                 .attr("y1", d.dot_factor_position.y)
                 .attr("x2", 0.2 * v.mean.x + 0.8 * d.dot_factor_position.x)
@@ -1105,7 +1146,7 @@ function join_enter_factor(enter) {
           } else {
             // unifactor
             g.append("line")
-              .attr("stroke-width", 0.15 * GlobalUI.base_unit_graph)
+              .attr("stroke-width", GlobalUI.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
               .attr("x1", d.dot_factor_position.x)
               .attr("y1", d.dot_factor_position.y)
               .attr("x2", d.dot_factor_position.x)
@@ -1129,14 +1170,14 @@ function join_enter_factor(enter) {
               // (d) => (d.vars[0].mean.y + d.vars[1].mean.y) / 2
             )
             // .style("opacity", 0)
-            .attr("r", 0.3 * 2 * GlobalUI.base_unit_graph) // *2 is transitory
-            .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph)
+            .attr("r", 2* GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient()) // *2 is transitory
+            .attr("stroke-width", GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient())
             // on hover, dot-circle of factor grows and tooltip displays
             .on("mouseover", (e, d) => {
               //circle first
               d3.select(e.currentTarget)
-                .attr("r", 1.4 * 0.3 * GlobalUI.base_unit_graph)
-                .attr("stroke-width", 0.1 * GlobalUI.base_unit_graph);
+                .attr("r", 1.4 * GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
+                .attr("stroke-width", 2* GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
               // the tooltip
               elDivTooltip
                 .style("left", `${e.pageX}px`)
@@ -1163,8 +1204,8 @@ function join_enter_factor(enter) {
             .on("mouseout", (e, _) => {
               // retract the radius of the factor dot
               d3.select(e.currentTarget)
-                .attr("r", 1 * 0.3 * GlobalUI.base_unit_graph)
-                .attr("stroke-width", 0.05 * GlobalUI.base_unit_graph);
+                .attr("r",  GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
+                .attr("stroke-width", GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
               // hide the tooltip
               d3.select(e.currentTarget).style("cursor", "default");
               elDivTooltip.style("visibility", "hidden");
@@ -1173,7 +1214,7 @@ function join_enter_factor(enter) {
             .transition("fc")
             .duration(2200)
             // .style("opacity")
-            .attr("r", 0.3 * GlobalUI.base_unit_graph);
+            .attr("r", GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient());
         });
     });
 }
@@ -1264,25 +1305,80 @@ function join_enter_vertex(enter) {
           .attr("transform", "rotate(0)")
           .call(function (g) {
             g.append("circle")
-              .attr("r", GlobalUI.base_unit_graph * 3)
+              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
               .style("opacity", 0)
-              .attr("stroke-width", 0.12 * GlobalUI.base_unit_graph)
+              .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
               .transition(t_vertex_entry)
-              .attr("r", GlobalUI.base_unit_graph)
+              .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient())
               .style("opacity", null);
             // text: variable name inside the circle
             g.append("text")
               .text((d) => d.var_id)
               // .attr("stroke-width", "0.1px")
-              .attr("text-anchor", "middle")
-              .attr("alignment-baseline", "central")
+              // .attr("text-anchor", "middle")
+              // .attr("alignment-baseline", "central")
               .style("opacity", 0)
               .transition(t_vertex_entry)
               .attr(
                 "font-size",
-                ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
+                GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
               )
               .style("opacity", null);
+            g.append('circle')
+              .classed('hover_transparent_circle',true)
+              .style("opacity", 0)
+              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
+              .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
+              // on hover, the texts and circles of .vertex will grow in size by 1.4
+              .on("mouseover", (e, d) => {
+                //circle first
+                d3.select(`.vertex#${d.var_id}`)
+                  .selectAll("circle")
+                  .attr("r", 1.4 * GlobalUI.dim.vertex_circle_r * GlobalUI.get_unified_scaling_coefficient())
+                  .attr("stroke-width", 1.4*GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient());
+                // text should grow as well
+                d3.select(`.vertex#${d.var_id}`)
+                  .selectAll("text")
+                  .attr(
+                    "font-size",
+                    1.4 * GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
+                  );
+                // the tooltip
+                elDivTooltip
+                  .style("left", `${e.pageX}px`)
+                  .style("top", `${e.pageY - 6}px`)
+                  .style("visibility", "visible").html(`<p class="tooltip-title">
+                          <strong><em>${d.var_id}</em></strong>
+                         </p>
+                         <br>
+                         <span class="tooltip-field"><strong>Mean</strong></span>: 
+                         <span class="tooltip-value">${JSON.stringify(
+                           d.mean,
+                           (k, v) => (v.toPrecision ? v.toPrecision(4) : v),
+                           "\t"
+                         )}</span>
+                         `);
+                d3.select(`.vertex#${d.var_id}`).style("cursor", "pointer");
+              })
+              .on("mousemove", (e) =>
+                elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
+              )
+              // on hover out, rebase to default
+              .on("mouseout", (e, d) => {
+                d3.select(`.vertex#${d.var_id}`)
+                  .selectAll("circle")
+                  .attr("stroke-width", GlobalUI.dim.vertex_circle_width*GlobalUI.get_unified_scaling_coefficient())
+                  .attr("r", GlobalUI.dim.vertex_circle_r * GlobalUI.get_unified_scaling_coefficient());
+                d3.select(`.vertex#${d.var_id}`)
+                  .selectAll("text")
+                  .attr(
+                    "font-size",
+                        GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
+                  );
+                // hide the tooltip
+                d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
+                elDivTooltip.style("visibility", "hidden");
+              })
             // covariance (-> a rotated group that holds an ellipse)
             g.append("g")
               .attr(
@@ -1296,58 +1392,6 @@ function join_enter_vertex(enter) {
               .transition(t_vertex_entry)
               .style("opacity", null); // wow! this will look for the CSS (has to a style)
           });
-      })
-      // on hover, the texts and circles of .vertex will grow in size by 1.4
-      .on("mouseover", (e, d) => {
-        //circle first
-        d3.select(e.currentTarget)
-          .selectAll("circle")
-          .attr("r", 1.4 * GlobalUI.base_unit_graph)
-          .attr("stroke-width", 0.28 * GlobalUI.base_unit_graph);
-        // text should grow as well
-        d3.select(e.currentTarget)
-          .selectAll("text")
-          .attr(
-            "font-size",
-            1.4 * ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
-          );
-        // the tooltip
-        elDivTooltip
-          .style("left", `${e.pageX}px`)
-          .style("top", `${e.pageY - 6}px`)
-          .style("visibility", "visible").html(`<p class="tooltip-title">
-                  <strong><em>${d.var_id}</em></strong>
-                 </p>
-                 <br>
-                 <span class="tooltip-field"><strong>Mean</strong></span>: 
-                 <span class="tooltip-value">${JSON.stringify(
-                   d.mean,
-                   (k, v) => (v.toPrecision ? v.toPrecision(4) : v),
-                   "\t"
-                 )}</span>
-                 `);
-        // TODO GlobalUI should set the precision
-        // cursor
-        d3.select(e.currentTarget).style("cursor", "pointer");
-      })
-      .on("mousemove", (e) =>
-        elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
-      )
-      // on hover out, rebase to default
-      .on("mouseout", (e, d) => {
-        d3.select(e.currentTarget)
-          .selectAll("circle")
-          .attr("stroke-width", 0.12 * GlobalUI.base_unit_graph)
-          .attr("r", 1 * GlobalUI.base_unit_graph);
-        d3.select(e.currentTarget)
-          .selectAll("text")
-          .attr(
-            "font-size",
-            ((3 - d.var_id.length) / 6 + 1) * GlobalUI.base_unit_graph
-          );
-        // hide the tooltip
-        d3.select(e.currentTarget).style("cursor", "default");
-        elDivTooltip.style("visibility", "hidden");
       })
   );
 }

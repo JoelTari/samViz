@@ -16,7 +16,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  display: inline-block;
   height: 100vh;
   overflow: hidden;
   margin: 0;
@@ -67,8 +66,13 @@ svg .axes text {
 }
 .vertex text {
   font-family: Monospace;
-  cursor: default;
+  text-anchor: middle;
+  alignment-baseline: central;
   opacity: 1;
+}
+
+.vertex .hover_transparent_circle {
+  z-index: 20;
 }
 
 .vertex ellipse {
