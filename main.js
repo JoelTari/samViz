@@ -70,6 +70,7 @@ elSvg.call(zoom);
 function zoomed({ transform }) {
   // apply the zoom transform to the main group
   elMainGroup.attr("transform", transform);
+
   const max_scale=0.2; // TODO: automate this max_scale: based on an ideal font maybe
   if (transform.k > max_scale){
     // must compensate for excessive scaling
@@ -1305,7 +1306,7 @@ function join_enter_vertex(enter) {
           .attr("transform", "rotate(0)")
           .call(function (g) {
             g.append("circle")
-              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
+              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() ) // 10-fold is transitory
               .style("opacity", 0)
               .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
               .transition(t_vertex_entry)
@@ -1327,7 +1328,7 @@ function join_enter_vertex(enter) {
             g.append('circle')
               .classed('hover_transparent_circle',true)
               .style("opacity", 0)
-              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
+              .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
               .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
               // on hover, the texts and circles of .vertex will grow in size by 1.4
               .on("mouseover", (e, d) => {

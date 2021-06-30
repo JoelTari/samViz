@@ -69,11 +69,12 @@ svg .axes text {
   text-anchor: middle;
   alignment-baseline: central;
   opacity: 1;
+  pointer-events: none;
 }
 
-.vertex .hover_transparent_circle {
-  z-index: 20;
-}
+/* .vertex .hover_transparent_circle { */
+/*   z-index: 20; */
+/* } */
 
 .vertex ellipse {
   /* covariance */
