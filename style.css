@@ -72,18 +72,6 @@ svg .axes text {
   pointer-events: none;
 }
 
-/* .vertex .hover_transparent_circle { */
-/*   z-index: 20; */
-/* } */
-
-.vertex ellipse {
-  /* covariance */
-  fill: #ece281;
-  opacity: 0.4;
-  transition: opacity 1s ease;
-  /* no display */
-  display: none;
-}
 .factor line {
   stroke: #7c6f64;
 }
@@ -91,6 +79,19 @@ svg .axes text {
   fill: #333;
   stroke: #7c6f64;
   /* opacity: 1; */
+}
+
+ellipse.covariance {
+  /* covariance */
+  /* fill: #ece281; */
+  fill: none;
+  fill-opacity: 0.8;
+  stroke: black;
+  /* opacity: 0; */
+  /* transition: opacity 1s ease; */
+  /* no display */
+  /* display: none; */
+  /* visibility: hidden; */
 }
 
 /******************************************/

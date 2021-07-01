@@ -45,6 +45,7 @@ GlobalUI = {
     vertex_circle_width:0.12,
     // 1340 font-size, mouseover vertex, mousemv etc..
     vertex_font_size: function(str_size){return (3 - str_size) / 6 + 1;},
+    covariance_ellipse_width: 0.03,
   },
   get_unified_scaling_coefficient: function(){
     return this.base_unit_graph*this.excess_zoom_compensator;
@@ -246,6 +247,7 @@ constructD3FactorGraph = function (d3container, robot_id) {
     .classed("factor_graph", true)
     .attr("id", robot_id)
     .call(function (g_factor_graph) {
+      g_factor_graph.append("g").classed("covariances_group", true);
       g_factor_graph.append("g").classed("factors_group", true);
       g_factor_graph.append("g").classed("vertices_group", true);
     });
@@ -340,6 +342,15 @@ class BaseAgentViz {
     console.log("Pre-visualization treatment done");
 
     // general update pattern
+    // first the covariances
+    // then the factors (therefore on top of the cov)
+    // then the vertices (therefore on top of the factors)
+    this.d3FactorGraph
+      .select("g.covariances_group")
+      .selectAll(".covariance")
+      .data(graph.marginals)
+      .join(join_enter_covariance, join_update_covariance) // TODO: exit covariance
+
     this.d3FactorGraph
       .select("g.factors_group")
       .selectAll(".factor")
@@ -1198,37 +1209,36 @@ function join_update_factor(update) {
   // transform those functions in classes of which the transitions are members
   const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
 
-  return update.each(function (d) {
-    d3.select(this)
+  update.each(function (d) {
+      d3.select(this)
       .selectAll("line")
-      .each(function (dd, i) {
+      .each(function (_, i,n) {
         if (d.vars.length > 1) {
           // line
-          d3.select(this)
+          d3.select(n[i])
             .transition(t_graph_motion)
             .attr("x1", d.dot_factor_position.x)
-            .attr("y1", d.dot_factor_position.y)
-            .attr("x2", d.vars[i].mean.x)
-            .attr("y2", d.vars[i].mean.y);
+            .attr("y1",d.dot_factor_position.y)
+            .attr("x2",d.vars[i].mean.x)
+            .attr("y2",d.vars[i].mean.y);
         } else {
           // update unary factor
           // WARN TODO: a factor_id should not change its vars_id
-          d3.select(this)
+          d3.select(n[i])
             .transition(t_graph_motion)
-            .attr("x1", d.vars[0].mean.x)
-            .attr("y1", d.vars[0].mean.y)
-            .attr("x2", d.dot_factor_position.x)
-            .attr("y2", d.dot_factor_position.y);
+            .attr("x1",d.vars[0].mean.x)
+            .attr("y1",d.vars[0].mean.y)
+            .attr("x2",d.dot_factor_position.x)
+            .attr("y2",d.dot_factor_position.y);
         }
       });
+    });
     // the little factor circle (to visually differentiate from with MRF)
-    d3.select(this)
-      .selectChild("g")
+    update
       .select("circle")
       .transition(t_graph_motion)
-      .attr("cx", d.dot_factor_position.x)
-      .attr("cy", d.dot_factor_position.y);
-  });
+      .attr("cx",d=> d.dot_factor_position.x)
+      .attr("cy",d=> d.dot_factor_position.y);
 }
 
 function join_exit_factor(exit) {
@@ -1258,7 +1268,7 @@ function join_enter_vertex(enter) {
   return (
     enter
       .append("g")
-      .classed("vertex", true)
+      .classed("vertex", true) // TODO: necessary ?
       .attr("id", (d) => d.var_id)
       .attr("transform", "rotate(0)")
       .each(function (d) {
@@ -1342,46 +1352,47 @@ function join_enter_vertex(enter) {
                 d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
                 elDivTooltip.style("visibility", "hidden");
               })
-            // covariance (-> a rotated group that holds an ellipse)
-            // TODO: is the group necessary ?
-            d3.select(this).append("g")
-              .attr(
-                "transform",
-                `rotate(${(d.covariance.rot * 180) / Math.PI})`
-              )
-              .append("ellipse")
-              .attr("rx", d.covariance.sigma[0] * Math.sqrt(9.21))
-              .attr("ry", d.covariance.sigma[1] * Math.sqrt(9.21))
-              .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
-              .transition(t_vertex_entry)
-              .style("opacity", null); // wow! this will look for the CSS (has to a style)
-          // });
       })
   );
 }
 
-function join_update_vertex(update) {
-  // TODO:
-  // Imho best way to avoid to define those transitions everywhere is to
-  // transform those functions in classes of which the transitions are members
+function join_enter_covariance(enter){
+  return enter
+          .append("ellipse")
+          .classed("covariance",true)
+          .attr("id", (d) => d.var_id)
+          .attr(
+            "transform",
+            d=>`translate(${d.mean.x},${d.mean.y}) rotate(${(d.covariance.rot * 180) / Math.PI})`
+          )
+          .attr("rx",d=> d.covariance.sigma[0] * Math.sqrt(9.21))
+          .attr("ry",d=> d.covariance.sigma[1] * Math.sqrt(9.21))
+          .attr("stroke-width",GlobalUI.dim.covariance_ellipse_width * GlobalUI.get_unified_scaling_coefficient())
+          // .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
+          // .transition()
+          // .duration(400)
+          // .style("opacity", null); // wow! this will look for the CSS (has to a style)
+}
+
+function join_update_covariance(update){
   const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
+  update
+      .transition(t_graph_motion)
+      .attr("transform", 
+            d=>`translate(${d.mean.x},${d.mean.y}) rotate(${(d.covariance.rot * 180) / Math.PI})`
+      )
+      .attr("rx",d=> d.covariance.sigma[0] * Math.sqrt(9.21))
+      .attr("ry",d=> d.covariance.sigma[1] * Math.sqrt(9.21));
+}
 
-  return update.each(function (d) {
-    d3.select(this)
+function join_update_vertex(update) {
+  const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
+  update
+    // .each(function (d) {
+    // d3.select(this)
       .transition(t_graph_motion)
-      .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")");
-
-   d3.select(this)
-      .selectChild("g") // group (incl. rotate)
-      .transition(t_graph_motion)
-      .attr("transform", `rotate(${(d.covariance.rot * 180) / Math.PI})`)
-      .selection()
-      .selectChild("ellipse")
-      .transition(t_graph_motion)
-      .attr("rx", d.covariance.sigma[0] * Math.sqrt(9.21))
-      .attr("ry", d.covariance.sigma[1] * Math.sqrt(9.21))
-      .selection();
-  });
+      .attr("transform",d=> `translate(${d.mean.x}, ${d.mean.y})`);
+  // });
 }
 
 function join_exit_vertex(exit) {
