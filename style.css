@@ -64,6 +64,7 @@ svg .axes text {
   fill: #f9f5d7;
   stroke: #928374;
 }
+
 .vertex text {
   font-family: Monospace;
   text-anchor: middle;
@@ -89,8 +90,14 @@ ellipse.covariance {
 }
 
 ellipse.covariance.highlight {
-  /* when the mouse is on associated vertex*/
+  /* when the mouse is on associated vertex */
   fill: #ece281;
+}
+
+.factor.link_highlight line,
+.factor.link_highlight circle,
+.vertex.link_highlight circle {
+  stroke: darksalmon;
 }
 
 /******************************************/

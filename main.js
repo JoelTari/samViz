@@ -1162,6 +1162,9 @@ function join_enter_factor(enter) {
               d3.select(e.currentTarget)
                 .attr("r", 1.4 * GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
                 .attr("stroke-width", 2* GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
+              // highlight the line(s) from the dot factor to the vertex/ices , and also the stroke of this/ese vertex/ices
+              d3.select(`.factor#${d.factor_id}`).classed('link_highlight',true)
+              d.vars_id.forEach( var_str => d3.select(`.vertex#${var_str}`).classed('link_highlight',true));
               // the tooltip
               elDivTooltip
                 .style("left", `${e.pageX}px`)
@@ -1190,6 +1193,9 @@ function join_enter_factor(enter) {
               d3.select(e.currentTarget)
                 .attr("r",  GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
                 .attr("stroke-width", GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
+              // remove the highlight on the surroundings
+              d3.select(`.factor#${d.factor_id}`).classed('link_highlight',false)
+              d.vars_id.forEach( var_str => d3.select(`.vertex#${var_str}`).classed('link_highlight',false));
               // hide the tooltip
               d3.select(e.currentTarget).style("cursor", "default");
               elDivTooltip.style("visibility", "hidden");
