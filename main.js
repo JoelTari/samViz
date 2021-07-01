@@ -287,7 +287,7 @@ class BaseAgentViz {
 
   graphsCallback = function (graph) {
     console.log("Receive some graph return :" + this.id);
-    console.log(graph);
+    // console.log(graph);
 
     // TEMPORARY (TODO)
     // apply base unit graph if specified
@@ -300,23 +300,6 @@ class BaseAgentViz {
     //        Then, the globalUI retrieve the left/right/top/bottom-most values
     //        among the agent-team, and that is what defines the XY-aligned
     //        bounding-box (so that we see all graphs)
-
-    //      Naive method to get the bounding box
-    // const max_x=graph.marginals.reduce((max_so_far,current_marginal)=>
-    //                                     Math.max(max_so_far,current_marginal.mean.x)
-    //                                     , -Infinity);
-    // const min_x=graph.marginals.reduce((min_so_far,current_marginal)=>
-    //                                     Math.min(min_so_far,current_marginal.mean.x)
-    //                                     , Infinity);
-    // const max_y=graph.marginals.reduce((max_so_far,current_marginal)=>
-    //                                     Math.max(max_so_far,current_marginal.mean.y)
-    //                                     , -Infinity);
-    // const min_y=graph.marginals.reduce((min_so_far,current_marginal)=>
-    //                                     Math.min(min_so_far,current_marginal.mean.y)
-    //                                     , Infinity);
-    // console.log(`Bounding box is [${min_x.toFixed(2)}, ${min_y.toFixed(2)}, ${max_x.toFixed(2)}, ${max_y.toFixed(2)}]`)
-
-    // trying to compute the bounding-box in one loop
     const [mx, Mx, my, My] = graph.marginals.reduce(
       (tmp_bb, cur) => [
         Math.min(tmp_bb[0], cur.mean.x),
@@ -324,7 +307,7 @@ class BaseAgentViz {
         Math.min(tmp_bb[2], cur.mean.y),
         Math.max(tmp_bb[3], cur.mean.y),
       ],
-      [Infinity, -Infinity, Infinity, -Infinity]
+      [Infinity, -Infinity, Infinity, -Infinity] // initial extreme values
     );
 
     // console.log(`Bounding box is [${mx.toFixed(2)}, ${my.toFixed(2)}, ${Mx.toFixed(2)}, ${My.toFixed(2)}]`)
@@ -347,14 +330,6 @@ class BaseAgentViz {
         .scale(scaleValue) 
         .translate(translateValueX, translateValueY)
     );
-    // apply the axis transform TODO
-    // d3.select('.testaxis')
-    //   .call(
-    //   zoom.transform,
-    //   d3.zoomIdentity
-    //     .scale(scaleValue) 
-    //     // .translate(translateValueX, translateValueY)
-    // );
 
     // massage data: the dot factor positions must be explicitly computed here:
     //    - when a factor connects 2 or more variables: position = barycenter
@@ -362,6 +337,7 @@ class BaseAgentViz {
     //                                              that depends on the other factors 
     //                                              linked to that variable 
     estimation_data_massage(graph);
+    console.log("Pre-visualization treatment done");
 
     // general update pattern
     this.d3FactorGraph
@@ -1225,10 +1201,6 @@ function join_update_factor(update) {
   return update.each(function (d) {
     d3.select(this)
       .selectAll("line")
-      // .selectChildren("line")
-      // .selectChild("line") // TODO: all children
-      // .call(function (lines) {
-      // lines.each(function (dd, i) {
       .each(function (dd, i) {
         if (d.vars.length > 1) {
           // line
@@ -1248,7 +1220,6 @@ function join_update_factor(update) {
             .attr("x2", d.dot_factor_position.x)
             .attr("y2", d.dot_factor_position.y);
         }
-        // });
       });
     // the little factor circle (to visually differentiate from with MRF)
     d3.select(this)
@@ -1289,14 +1260,14 @@ function join_enter_vertex(enter) {
       .append("g")
       .classed("vertex", true)
       .attr("id", (d) => d.var_id)
+      .attr("transform", "rotate(0)")
       .each(function (d) {
         d3.select(this)
-          .append("g")
           .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")")
-          .append("g")
-          .attr("transform", "rotate(0)")
-          .call(function (g) {
-            g.append("circle")
+        //   .append("g")
+        //   .append("g")
+        // .call(function (g) {
+        d3.select(this).append("circle")
               .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() ) // 10-fold is transitory
               .style("opacity", 0)
               .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
@@ -1304,7 +1275,7 @@ function join_enter_vertex(enter) {
               .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient())
               .style("opacity", null);
             // text: variable name inside the circle
-            g.append("text")
+           d3.select(this).append("text")
               .text((d) => d.var_id)
               // .attr("stroke-width", "0.1px")
               // .attr("text-anchor", "middle")
@@ -1316,7 +1287,7 @@ function join_enter_vertex(enter) {
                 GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
               )
               .style("opacity", null);
-            g.append('circle')
+            d3.select(this).append('circle')
               .classed('hover_transparent_circle',true)
               .style("opacity", 0)
               .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
@@ -1372,7 +1343,8 @@ function join_enter_vertex(enter) {
                 elDivTooltip.style("visibility", "hidden");
               })
             // covariance (-> a rotated group that holds an ellipse)
-            g.append("g")
+            // TODO: is the group necessary ?
+            d3.select(this).append("g")
               .attr(
                 "transform",
                 `rotate(${(d.covariance.rot * 180) / Math.PI})`
@@ -1383,7 +1355,7 @@ function join_enter_vertex(enter) {
               .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
               .transition(t_vertex_entry)
               .style("opacity", null); // wow! this will look for the CSS (has to a style)
-          });
+          // });
       })
   );
 }
@@ -1396,14 +1368,10 @@ function join_update_vertex(update) {
 
   return update.each(function (d) {
     d3.select(this)
-      .selectChild("g")
       .transition(t_graph_motion)
-      .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")")
-      .selection();
+      .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")");
 
-    d3.select(this)
-      .selectChild("g") //translate
-      .selectChild("g") //rotate
+   d3.select(this)
       .selectChild("g") // group (incl. rotate)
       .transition(t_graph_motion)
       .attr("transform", `rotate(${(d.covariance.rot * 180) / Math.PI})`)
