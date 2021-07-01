@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
 
     # block the code here, process the messages for the subscribed topics
-    print('looping')
-    mqttc.loop_forever()
-    print('disconnecting')
+    # print('looping')
+    # mqttc.loop_forever()
+    # print('disconnecting')
     mqttc.disconnect()
