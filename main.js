@@ -1130,7 +1130,7 @@ function join_enter_factor(enter) {
           } else {
             // unifactor
             g.append("line")
-              .attr("stroke-width", GlobalUI.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
+              .attr("stroke-width", GlobalUI.dim.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
               .attr("x1", d.dot_factor_position.x)
               .attr("y1", d.dot_factor_position.y)
               .attr("x2", d.dot_factor_position.x)
