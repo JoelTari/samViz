@@ -76,11 +76,11 @@ function zoomed({ transform }) {
   if (transform.k > max_scale){
     // must compensate for excessive scaling
     GlobalUI.excess_zoom_compensator = max_scale/transform.k;
-    update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
+    // update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
   }
   else{
     GlobalUI.excess_zoom_compensator = 1;
-    update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
+    // update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
   }
 
   // rescale the axes x & y
