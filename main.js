@@ -1304,7 +1304,7 @@ function join_enter_vertex(enter) {
               .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
               // on hover, the texts and circles of .vertex will grow in size by 1.4
               .on("mouseover", (e, d) => {
-                //circle first
+                // grow the vertex circle
                 d3.select(`.vertex#${d.var_id}`)
                   .selectAll("circle")
                   .attr("r", 1.4 * GlobalUI.dim.vertex_circle_r * GlobalUI.get_unified_scaling_coefficient())
@@ -1316,6 +1316,8 @@ function join_enter_vertex(enter) {
                     "font-size",
                     1.4 * GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
                   );
+                // fill the covariance
+                d3.select(`#${d.var_id}.covariance`).classed('highlight',true);
                 // the tooltip
                 elDivTooltip
                   .style("left", `${e.pageX}px`)
@@ -1331,6 +1333,7 @@ function join_enter_vertex(enter) {
                            "\t"
                          )}</span>
                          `);
+                // change the pointer
                 d3.select(`.vertex#${d.var_id}`).style("cursor", "pointer");
               })
               .on("mousemove", (e) =>
@@ -1348,6 +1351,8 @@ function join_enter_vertex(enter) {
                     "font-size",
                         GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
                   );
+                // remove covariance highlight
+                d3.select(`#${d.var_id}.covariance`).classed('highlight',false);
                 // hide the tooltip
                 d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
                 elDivTooltip.style("visibility", "hidden");
