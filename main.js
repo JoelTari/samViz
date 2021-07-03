@@ -18,15 +18,14 @@
 // viewbox and aspect ratio values, this assume we start the viz centered
 // around origin, with unit-sized-width
 const aspect_ratio = 0.6;
-const viewbox=[-1/2.0,-aspect_ratio/2.0,1.0,aspect_ratio];
+const viewbox = [-1 / 2.0, -aspect_ratio / 2.0, 1.0, aspect_ratio];
 
 // DOM related
 const elBody = d3.select("body");
-const elSvg = d3.select("svg.svg-content").attr('viewBox',viewbox.toString());
-const elAxes= d3.select('svg .axes');
+const elSvg = d3.select("svg.svg-content").attr("viewBox", viewbox.toString());
+const elAxes = d3.select("svg .axes");
 // Define the div for the tooltip
 const elDivTooltip = d3.select("body").append("div").classed("tooltip", true);
-
 
 // initially no robot is selected
 GlobalUI = {
@@ -35,21 +34,23 @@ GlobalUI = {
   // (set when receiving a graph and getting a medium distance between the nodes)
   // this is the default setting, it can instead be set by the message header of graph
   excess_zoom_compensator: 1, // different than 1 when zoom too much/too little
-  dim:{
+  dim: {
     factor_dot_r: 0.3,
     factor_dot_r_mouseover: 0.42,
     factor_dot_width: 0.05,
     factor_dot_width_mouseover: 0.1,
     factor_line_width: 0.15,
-    vertex_circle_r:1,
-    vertex_circle_width:0.12,
+    vertex_circle_r: 1,
+    vertex_circle_width: 0.12,
     // 1340 font-size, mouseover vertex, mousemv etc..
-    vertex_font_size: function(str_size){return (3 - str_size) / 6 + 1;},
+    vertex_font_size: function (str_size) {
+      return (3 - str_size) / 6 + 1;
+    },
     covariance_ellipse_width: 0.03,
   },
-  get_unified_scaling_coefficient: function(){
-    return this.base_unit_graph*this.excess_zoom_compensator;
-  }
+  get_unified_scaling_coefficient: function () {
+    return this.base_unit_graph * this.excess_zoom_compensator;
+  },
 };
 /******************************************************************************
  *                           SVG Group binding to d3
@@ -72,13 +73,12 @@ function zoomed({ transform }) {
   // apply the zoom transform to the main group
   elMainGroup.attr("transform", transform);
 
-  const max_scale=0.2; // TODO: automate this max_scale: based on an ideal font maybe
-  if (transform.k > max_scale){
+  const max_scale = 0.2; // TODO: automate this max_scale: based on an ideal font maybe
+  if (transform.k > max_scale) {
     // must compensate for excessive scaling
-    GlobalUI.excess_zoom_compensator = max_scale/transform.k;
+    GlobalUI.excess_zoom_compensator = max_scale / transform.k;
     // update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
-  }
-  else{
+  } else {
     GlobalUI.excess_zoom_compensator = 1;
     // update_graph_dimensions(GlobalUI.get_unified_scaling_coefficient());
   }
@@ -88,11 +88,11 @@ function zoomed({ transform }) {
   const sc_yz = transform.rescaleY(sc_y);
 
   // adjust the axis-object for the new scale
-  // & re-apply the axis-object on the axis-dom-element 
-  elAxes.select('.Xaxis-bot').call(xaxis_bot.scale(sc_xz));
-  elAxes.select('.Xaxis-top').call(xaxis_top.scale(sc_xz));
-  elAxes.select('.Yaxis-left').call(yaxis_left.scale(sc_yz));
-  elAxes.select('.Yaxis-right').call(yaxis_right.scale(sc_yz));
+  // & re-apply the axis-object on the axis-dom-element
+  elAxes.select(".Xaxis-bot").call(xaxis_bot.scale(sc_xz));
+  elAxes.select(".Xaxis-top").call(xaxis_top.scale(sc_xz));
+  elAxes.select(".Yaxis-left").call(yaxis_left.scale(sc_yz));
+  elAxes.select(".Yaxis-right").call(yaxis_right.scale(sc_yz));
 
   // (currently in CSS)
   // elAxes.selectAll('text').attr('font-size','0.007px')
@@ -103,15 +103,23 @@ function zoomed({ transform }) {
 // it's like an update, but outside the d3js pattern as there are no new data per say,
 // but some dimensional aspect of the graph need to change to ease the viz experience
 // (due to excessive zoom for example)
-function update_graph_dimensions( coef ){
-    d3.selectAll('.factor circle').attr('r',GlobalUI.dim.factor_dot_r*coef)
-                                  .attr('stroke-width',GlobalUI.dim.factor_dot_width*coef);
+function update_graph_dimensions(coef) {
+  d3.selectAll(".factor circle")
+    .attr("r", GlobalUI.dim.factor_dot_r * coef)
+    .attr("stroke-width", GlobalUI.dim.factor_dot_width * coef);
 
-    d3.selectAll('.factor line').attr('stroke-width',GlobalUI.dim.factor_line_width*coef);
+  d3.selectAll(".factor line").attr(
+    "stroke-width",
+    GlobalUI.dim.factor_line_width * coef
+  );
 
-    d3.selectAll('.vertex circle').attr('r',GlobalUI.dim.vertex_circle_r*coef)
-                                  .attr('stroke-width',GlobalUI.dim.vertex_circle_width*coef);
-    d3.selectAll('.vertex text').attr('font-size',d => GlobalUI.dim.vertex_font_size(d.var_id.length)*coef)
+  d3.selectAll(".vertex circle")
+    .attr("r", GlobalUI.dim.vertex_circle_r * coef)
+    .attr("stroke-width", GlobalUI.dim.vertex_circle_width * coef);
+  d3.selectAll(".vertex text").attr(
+    "font-size",
+    (d) => GlobalUI.dim.vertex_font_size(d.var_id.length) * coef
+  );
 }
 
 /******************************************************************************
@@ -119,38 +127,54 @@ function update_graph_dimensions( coef ){
  *****************************************************************************/
 
 // Define the axes with 1:1 scales
-let sc_x = d3.scaleLinear().domain([-0.5,0.5]).nice().range([-0.5,0.5]);
-let sc_y = d3.scaleLinear().domain([-0.3,0.3]).nice().range([-0.3,0.3]);
+let sc_x = d3.scaleLinear().domain([-0.5, 0.5]).nice().range([-0.5, 0.5]);
+let sc_y = d3.scaleLinear().domain([-0.3, 0.3]).nice().range([-0.3, 0.3]);
 // define the axes objects, based on the scale, and adjust for the default viewbox
-let xaxis_bot=d3.axisTop(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
-               .tickPadding(0.005) // how far the text is from axis (normal direction)
-               .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
-               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0); // no offset between path and lines
+let xaxis_bot = d3
+  .axisTop(sc_x) // top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
+  .tickPadding(0.005) // how far the text is from axis (normal direction)
+  .tickSizeInner(-0.005) // length of the ticks (in the normal direction to the axis)
+  .tickSizeOuter(0) // no  outer ticks (modify the path)
+  .offset(0); // no offset between path and lines
 
-let xaxis_top=d3.axisBottom(sc_x)// top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
-               .tickPadding(0.005) // how far the text is from axis (normal direction)
-               .tickSizeInner(-0.005)    // length of the ticks (in the normal direction to the axis) 
-               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0); // no offset between path and lines
+let xaxis_top = d3
+  .axisBottom(sc_x) // top=[..]Bottom  is  c-intuitive, but I want the ticks & text to extend inward
+  .tickPadding(0.005) // how far the text is from axis (normal direction)
+  .tickSizeInner(-0.005) // length of the ticks (in the normal direction to the axis)
+  .tickSizeOuter(0) // no  outer ticks (modify the path)
+  .offset(0); // no offset between path and lines
 
-let yaxis_left= d3.axisRight(sc_y)// right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward
-               .tickPadding(0.005) // how far the text is from axis (normal direction)
-               .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
-               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0); // no offset between path and lines
+let yaxis_left = d3
+  .axisRight(sc_y) // right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward
+  .tickPadding(0.005) // how far the text is from axis (normal direction)
+  .tickSizeInner(0.005) // length of the ticks (in the normal direction to the axis)
+  .tickSizeOuter(0) // no  outer ticks (modify the path)
+  .offset(0); // no offset between path and lines
 
-let yaxis_right= d3.axisLeft(sc_y) // right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward 
-               .tickPadding(0.005) // how far the text is from axis (normal direction)
-               .tickSizeInner(0.005)    // length of the ticks (in the normal direction to the axis) 
-               .tickSizeOuter(0)  // no  outer ticks (modify the path) 
-               .offset(0); // no offset between path and lines
+let yaxis_right = d3
+  .axisLeft(sc_y) // right=[..]Left  is  c-intuitive, but I want the ticks & text to extend inward
+  .tickPadding(0.005) // how far the text is from axis (normal direction)
+  .tickSizeInner(0.005) // length of the ticks (in the normal direction to the axis)
+  .tickSizeOuter(0) // no  outer ticks (modify the path)
+  .offset(0); // no offset between path and lines
 
 // generate the axes elements from the d3-axis object
-elAxes.select('.Xaxis-top').attr("transform", "translate(0,0.3)").call(xaxis_top);
-elAxes.select('.Xaxis-bot').attr("transform", "translate(0,-0.3)").call(xaxis_bot);
-elAxes.select('.Yaxis-left').attr("transform","translate(-0.5,0)").call(yaxis_left);
-elAxes.select('.Yaxis-right').attr("transform","translate(0.5,0)").call(yaxis_right);
+elAxes
+  .select(".Xaxis-top")
+  .attr("transform", "translate(0,0.3)")
+  .call(xaxis_top);
+elAxes
+  .select(".Xaxis-bot")
+  .attr("transform", "translate(0,-0.3)")
+  .call(xaxis_bot);
+elAxes
+  .select(".Yaxis-left")
+  .attr("transform", "translate(-0.5,0)")
+  .call(yaxis_left);
+elAxes
+  .select(".Yaxis-right")
+  .attr("transform", "translate(0.5,0)")
+  .call(yaxis_right);
 
 // (currently in CSS)
 // elAxes.selectAll('text').attr('font-size','0.007px')
@@ -291,10 +315,28 @@ class BaseAgentViz {
     console.log("Receive some graph return :" + this.id);
     // console.log(graph);
 
-    // TEMPORARY (TODO)
-    // apply base unit graph if specified
-    if (graph.header.base_unit != null)
+    // base unit graph is a coefficient to help size the components of the graph
+    // different graphs requires different size of vertex circle, stroke-width etc..
+    // The graph can have such a coefficient in the header, otherwise a value is computed
+    if (graph.header.base_unit != null) {
       GlobalUI.base_unit_graph = graph.header.base_unit;
+    } else {
+      // compute the base unit graph based on the median calculation of all distances
+      // between connected nodes
+      const node_distances = graph.factors.map((f) => {
+        if (f.type === "odometry") {
+          return sqDist(
+            graph.marginals.find((v) => v.var_id === f.vars_id[0]),
+            graph.marginals.find((v) => v.var_id === f.vars_id[1])
+          );
+        }
+      });
+      node_distances.sort((a, b) => a - b);
+      const half = Math.floor(node_distances.length / 2);
+      const median = Math.sqrt(node_distances[half]);
+      // for a median distance of 1 between nodes, 0.15 is the coefficient
+      GlobalUI.base_unit_graph = 0.15 * median;
+    }
 
     // This part define a zoom transform that is relevant, based on the new data
     //        get, for this graph, the left/right/top/bottom-most values
@@ -315,29 +357,33 @@ class BaseAgentViz {
     // console.log(`Bounding box is [${mx.toFixed(2)}, ${my.toFixed(2)}, ${Mx.toFixed(2)}, ${My.toFixed(2)}]`)
 
     // The axis that has the longuest span imposes the scale on the zoom.
-    // Note that the vertical span must also be corrected by the aspect ratio 
+    // Note that the vertical span must also be corrected by the aspect ratio
     // of the viewbox.
     // A 1.2 coef is applied to obtain some margin around the bounding-box
-    const scaleValue = 1.0 / (1.2*Math.max(Mx-mx, (My-my) * aspect_ratio));
-    
-    // translate value are the center , 
+    const scaleValue =
+      1.0 / (1.2 * Math.max(Mx - mx, (My - my) * aspect_ratio));
+
+    // translate value are the center ,
     // (but with minus, as its a transform applied to the target zoom)
     const translateValueX = -(mx + Mx) / 2;
     const translateValueY = -(my + My) / 2;
 
     // apply the zoom transform
-    elSvg.transition().duration(1500).call(
-      zoom.transform,
-      d3.zoomIdentity
-        .scale(scaleValue) 
-        .translate(translateValueX, translateValueY)
-    );
+    elSvg
+      .transition()
+      .duration(1500)
+      .call(
+        zoom.transform,
+        d3.zoomIdentity
+          .scale(scaleValue)
+          .translate(translateValueX, translateValueY)
+      );
 
     // massage data: the dot factor positions must be explicitly computed here:
     //    - when a factor connects 2 or more variables: position = barycenter
     //    - when a factor connects only 1 variable: try to find an intuitive positioning
-    //                                              that depends on the other factors 
-    //                                              linked to that variable 
+    //                                              that depends on the other factors
+    //                                              linked to that variable
     estimation_data_massage(graph);
     console.log("Pre-visualization treatment done");
 
@@ -349,7 +395,7 @@ class BaseAgentViz {
       .select("g.covariances_group")
       .selectAll(".covariance")
       .data(graph.marginals)
-      .join(join_enter_covariance, join_update_covariance) // TODO: exit covariance
+      .join(join_enter_covariance, join_update_covariance); // TODO: exit covariance
 
     this.d3FactorGraph
       .select("g.factors_group")
@@ -663,10 +709,10 @@ elBody.on("keyup", (e) => (keyPressedBuffer[e.key] = false));
 function getTransform_gg(d3_single_selected) {
   // only works on double group descendant framework
   // (first descendant is translation, second is rotation)
-  curx = d3_single_selected.selectChild("g").node().transform.baseVal[0].matrix
-    .e;
-  cury = d3_single_selected.selectChild("g").node().transform.baseVal[0].matrix
-    .f;
+  curx = d3_single_selected.selectChild("g").node().transform.baseVal[0]
+    .matrix.e;
+  cury = d3_single_selected.selectChild("g").node().transform.baseVal[0]
+    .matrix.f;
   curth = d3_single_selected.selectChild("g").selectChild("g").node().transform
     .baseVal[0].angle;
   return [curx, cury, curth];
@@ -1115,7 +1161,11 @@ function join_enter_factor(enter) {
             d.vars.forEach((v) =>
               g
                 .append("line")
-                .attr("stroke-width", GlobalUI.dim.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
+                .attr(
+                  "stroke-width",
+                  GlobalUI.dim.factor_line_width *
+                    GlobalUI.get_unified_scaling_coefficient()
+                )
                 .attr("x1", d.dot_factor_position.x)
                 .attr("y1", d.dot_factor_position.y)
                 .attr("x2", 0.2 * v.mean.x + 0.8 * d.dot_factor_position.x)
@@ -1130,7 +1180,11 @@ function join_enter_factor(enter) {
           } else {
             // unifactor
             g.append("line")
-              .attr("stroke-width", GlobalUI.dim.factor_line_width * GlobalUI.get_unified_scaling_coefficient())
+              .attr(
+                "stroke-width",
+                GlobalUI.dim.factor_line_width *
+                  GlobalUI.get_unified_scaling_coefficient()
+              )
               .attr("x1", d.dot_factor_position.x)
               .attr("y1", d.dot_factor_position.y)
               .attr("x2", d.dot_factor_position.x)
@@ -1154,57 +1208,29 @@ function join_enter_factor(enter) {
               // (d) => (d.vars[0].mean.y + d.vars[1].mean.y) / 2
             )
             // .style("opacity", 0)
-            .attr("r", 2* GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient()) // *2 is transitory
-            .attr("stroke-width", GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient())
-            // on hover, dot-circle of factor grows and tooltip displays
-            .on("mouseover", (e, d) => {
-              //circle first
-              d3.select(e.currentTarget)
-                .attr("r", 1.4 * GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
-                .attr("stroke-width", 2* GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
-              // highlight the line(s) from the dot factor to the vertex/ices , and also the stroke of this/ese vertex/ices
-              d3.select(`.factor#${d.factor_id}`).classed('link_highlight',true)
-              d.vars_id.forEach( var_str => d3.select(`.vertex#${var_str}`).classed('link_highlight',true));
-              // the tooltip
-              elDivTooltip
-                .style("left", `${e.pageX}px`)
-                .style("top", `${e.pageY - 6}px`)
-                .style("visibility", "visible").html(`<p class="tooltip-title">
-                        <strong><em>${d.factor_id}</em></strong>
-                       </p>
-                       <br>
-                       <span class="tooltip-field"><strong>Type</strong></span>: 
-                       <span class="tooltip-value">${d.type}</span>
-                       <br>
-                       <span class="tooltip-field"><strong>Vars</strong></span>: 
-                       <span class="tooltip-value">${d.vars_id}</span>
-                       `);
-              // cursor pointer
-              d3.select(e.currentTarget).style("cursor", "pointer");
-            })
-            .on("mousemove", (e) =>
-              elDivTooltip
-                .style("top", e.pageY + "px")
-                .style("left", e.pageX + "px")
+            .attr(
+              "r",
+              2 *
+                GlobalUI.dim.factor_dot_r *
+                GlobalUI.get_unified_scaling_coefficient()
+            ) // *2 is transitory
+            .attr(
+              "stroke-width",
+              GlobalUI.dim.factor_dot_width *
+                GlobalUI.get_unified_scaling_coefficient()
             )
-            // on hover out, rebase to default
-            .on("mouseout", (e, _) => {
-              // retract the radius of the factor dot
-              d3.select(e.currentTarget)
-                .attr("r",  GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient())
-                .attr("stroke-width", GlobalUI.dim.factor_dot_width * GlobalUI.get_unified_scaling_coefficient());
-              // remove the highlight on the surroundings
-              d3.select(`.factor#${d.factor_id}`).classed('link_highlight',false)
-              d.vars_id.forEach( var_str => d3.select(`.vertex#${var_str}`).classed('link_highlight',false));
-              // hide the tooltip
-              d3.select(e.currentTarget).style("cursor", "default");
-              elDivTooltip.style("visibility", "hidden");
-            })
+            // on hover, dot-circle of factor grows and tooltip displays
+            // define remotely for clarity
+            .call(factor_hover)
             // opacity transition not necessary here
             .transition("fc")
             .duration(2200)
             // .style("opacity")
-            .attr("r", GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient());
+            .attr(
+              "r",
+              GlobalUI.dim.factor_dot_r *
+                GlobalUI.get_unified_scaling_coefficient()
+            );
         });
     });
 }
@@ -1216,35 +1242,35 @@ function join_update_factor(update) {
   const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
 
   update.each(function (d) {
-      d3.select(this)
+    d3.select(this)
       .selectAll("line")
-      .each(function (_, i,n) {
+      .each(function (_, i, n) {
         if (d.vars.length > 1) {
           // line
           d3.select(n[i])
             .transition(t_graph_motion)
             .attr("x1", d.dot_factor_position.x)
-            .attr("y1",d.dot_factor_position.y)
-            .attr("x2",d.vars[i].mean.x)
-            .attr("y2",d.vars[i].mean.y);
+            .attr("y1", d.dot_factor_position.y)
+            .attr("x2", d.vars[i].mean.x)
+            .attr("y2", d.vars[i].mean.y);
         } else {
           // update unary factor
           // WARN TODO: a factor_id should not change its vars_id
           d3.select(n[i])
             .transition(t_graph_motion)
-            .attr("x1",d.vars[0].mean.x)
-            .attr("y1",d.vars[0].mean.y)
-            .attr("x2",d.dot_factor_position.x)
-            .attr("y2",d.dot_factor_position.y);
+            .attr("x1", d.vars[0].mean.x)
+            .attr("y1", d.vars[0].mean.y)
+            .attr("x2", d.dot_factor_position.x)
+            .attr("y2", d.dot_factor_position.y);
         }
       });
-    });
-    // the little factor circle (to visually differentiate from with MRF)
-    update
-      .select("circle")
-      .transition(t_graph_motion)
-      .attr("cx",d=> d.dot_factor_position.x)
-      .attr("cy",d=> d.dot_factor_position.y);
+  });
+  // the little factor circle (to visually differentiate from with MRF)
+  update
+    .select("circle")
+    .transition(t_graph_motion)
+    .attr("cx", (d) => d.dot_factor_position.x)
+    .attr("cy", (d) => d.dot_factor_position.y);
 }
 
 function join_exit_factor(exit) {
@@ -1271,64 +1297,169 @@ function join_enter_vertex(enter) {
   // transform those functions in classes of which the transitions are members
   const t_vertex_entry = d3.transition().duration(400);
 
-  return (
-    enter
-      .append("g")
-      .classed("vertex", true) // TODO: necessary ?
-      .attr("id", (d) => d.var_id)
-      .attr("transform", "rotate(0)")
-      .each(function (d) {
-        d3.select(this)
-          .attr("transform", "translate(" + d.mean.x + "," + d.mean.y + ")")
-        //   .append("g")
-        //   .append("g")
-        // .call(function (g) {
-        d3.select(this).append("circle")
-              .attr("r", 10* GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() ) // 10-fold is transitory
-              .style("opacity", 0)
-              .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
-              .transition(t_vertex_entry)
-              .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient())
-              .style("opacity", null);
-            // text: variable name inside the circle
-           d3.select(this).append("text")
-              .text((d) => d.var_id)
-              // .attr("stroke-width", "0.1px")
-              // .attr("text-anchor", "middle")
-              // .attr("alignment-baseline", "central")
-              .style("opacity", 0)
-              .transition(t_vertex_entry)
-              .attr(
-                "font-size",
-                GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
-              )
-              .style("opacity", null);
-            d3.select(this).append('circle')
-              .classed('hover_transparent_circle',true)
-              .style("opacity", 0)
-              .attr("r", GlobalUI.dim.vertex_circle_r*GlobalUI.get_unified_scaling_coefficient() )
-              .attr("stroke-width", GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient())
-              // on hover, the texts and circles of .vertex will grow in size by 1.4
-              .on("mouseover", (e, d) => {
-                // grow the vertex circle
-                d3.select(`.vertex#${d.var_id}`)
-                  .selectAll("circle")
-                  .attr("r", 1.4 * GlobalUI.dim.vertex_circle_r * GlobalUI.get_unified_scaling_coefficient())
-                  .attr("stroke-width", 1.4*GlobalUI.dim.vertex_circle_width * GlobalUI.get_unified_scaling_coefficient());
-                // text should grow as well
-                d3.select(`.vertex#${d.var_id}`)
-                  .selectAll("text")
-                  .attr(
-                    "font-size",
-                    1.4 * GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
-                  );
-                // fill the covariance
-                d3.select(`#${d.var_id}.covariance`).classed('highlight',true);
-                // the tooltip
-                elDivTooltip
-                  .style("left", `${e.pageX}px`)
-                  .style("top", `${e.pageY - 6}px`)
-                  .style("visibility", "visible").html(`<p class="tooltip-title">
+  return enter
+    .append("g")
+    .classed("vertex", true) // TODO: necessary ?
+    .attr("id", (d) => d.var_id)
+    .attr("transform", "rotate(0)")
+    .each(function (d) {
+      d3.select(this).attr(
+        "transform",
+        "translate(" + d.mean.x + "," + d.mean.y + ")"
+      );
+      //   .append("g")
+      //   .append("g")
+      // .call(function (g) {
+      d3.select(this)
+        .append("circle")
+        .attr(
+          "r",
+          10 *
+            GlobalUI.dim.vertex_circle_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        ) // 10-fold is transitory
+        .style("opacity", 0)
+        .attr(
+          "stroke-width",
+          GlobalUI.dim.vertex_circle_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .transition(t_vertex_entry)
+        .attr(
+          "r",
+          GlobalUI.dim.vertex_circle_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .style("opacity", null);
+      // text: variable name inside the circle
+      d3.select(this)
+        .append("text")
+        .text((d) => d.var_id)
+        // .attr("stroke-width", "0.1px")
+        // .attr("text-anchor", "middle")
+        // .attr("alignment-baseline", "central")
+        .style("opacity", 0)
+        .transition(t_vertex_entry)
+        .attr(
+          "font-size",
+          GlobalUI.dim.vertex_font_size(d.var_id.length) *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .style("opacity", null);
+      d3.select(this)
+        .append("circle")
+        .classed("hover_transparent_circle", true)
+        .style("opacity", 0)
+        .attr(
+          "r",
+          GlobalUI.dim.vertex_circle_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .attr(
+          "stroke-width",
+          GlobalUI.dim.vertex_circle_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        // hover methods (defined remotely for clarity)
+        .call(vertex_hover);
+    });
+}
+
+function join_update_vertex(update) {
+  const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
+  update
+    // .each(function (d) {
+    // d3.select(this)
+    .transition(t_graph_motion)
+    .attr("transform", (d) => `translate(${d.mean.x}, ${d.mean.y})`);
+  // });
+}
+
+function join_exit_vertex(exit) {
+  // TODO:
+  return exit;
+}
+
+function join_enter_covariance(enter) {
+  return enter
+    .append("ellipse")
+    .classed("covariance", true)
+    .attr("id", (d) => d.var_id)
+    .attr(
+      "transform",
+      (d) =>
+        `translate(${d.mean.x},${d.mean.y}) rotate(${
+          (d.covariance.rot * 180) / Math.PI
+        })`
+    )
+    .attr("rx", (d) => d.covariance.sigma[0] * Math.sqrt(9.21))
+    .attr("ry", (d) => d.covariance.sigma[1] * Math.sqrt(9.21))
+    .attr(
+      "stroke-width",
+      GlobalUI.dim.covariance_ellipse_width *
+        GlobalUI.get_unified_scaling_coefficient()
+    );
+  // .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
+  // .transition()
+  // .duration(400)
+  // .style("opacity", null); // wow! this will look for the CSS (has to a style)
+}
+
+function join_update_covariance(update) {
+  const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
+  update
+    .transition(t_graph_motion)
+    .attr(
+      "transform",
+      (d) =>
+        `translate(${d.mean.x},${d.mean.y}) rotate(${
+          (d.covariance.rot * 180) / Math.PI
+        })`
+    )
+    .attr("rx", (d) => d.covariance.sigma[0] * Math.sqrt(9.21))
+    .attr("ry", (d) => d.covariance.sigma[1] * Math.sqrt(9.21));
+}
+
+/******************************************************************************
+ *                            Hover behaviour
+ *****************************************************************************/
+
+function vertex_hover(vertex_circle) {
+  vertex_circle
+    // on hover, the texts and circles of .vertex will grow in size by 1.4
+    .on("mouseover", (e, d) => {
+      // grow the vertex circle, raise the element
+      d3.select(`.vertex#${d.var_id}`)
+        .raise()
+        .selectAll("circle") // TODO: necessary hover circle ??
+        .attr(
+          "r",
+          1.4 *
+            GlobalUI.dim.vertex_circle_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .attr(
+          "stroke-width",
+          1.4 *
+            GlobalUI.dim.vertex_circle_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      // text should grow as well
+      d3.select(`.vertex#${d.var_id}`)
+        .selectAll("text")
+        .attr(
+          "font-size",
+          1.4 *
+            GlobalUI.dim.vertex_font_size(d.var_id.length) *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      // fill the covariance
+      d3.select(`#${d.var_id}.covariance`).classed("highlight", true);
+      // the tooltip
+      elDivTooltip
+        .style("left", `${e.pageX}px`)
+        .style("top", `${e.pageY - 6}px`)
+        .style("visibility", "visible").html(`<p class="tooltip-title">
                           <strong><em>${d.var_id}</em></strong>
                          </p>
                          <br>
@@ -1339,76 +1470,109 @@ function join_enter_vertex(enter) {
                            "\t"
                          )}</span>
                          `);
-                // change the pointer
-                d3.select(`.vertex#${d.var_id}`).style("cursor", "pointer");
-              })
-              .on("mousemove", (e) =>
-                elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
-              )
-              // on hover out, rebase to default
-              .on("mouseout", (e, d) => {
-                d3.select(`.vertex#${d.var_id}`)
-                  .selectAll("circle")
-                  .attr("stroke-width", GlobalUI.dim.vertex_circle_width*GlobalUI.get_unified_scaling_coefficient())
-                  .attr("r", GlobalUI.dim.vertex_circle_r * GlobalUI.get_unified_scaling_coefficient());
-                d3.select(`.vertex#${d.var_id}`)
-                  .selectAll("text")
-                  .attr(
-                    "font-size",
-                        GlobalUI.dim.vertex_font_size(d.var_id.length) * GlobalUI.get_unified_scaling_coefficient()
-                  );
-                // remove covariance highlight
-                d3.select(`#${d.var_id}.covariance`).classed('highlight',false);
-                // hide the tooltip
-                d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
-                elDivTooltip.style("visibility", "hidden");
-              })
-      })
-  );
+      // change the pointer
+      d3.select(`.vertex#${d.var_id}`).style("cursor", "pointer");
+    })
+    .on("mousemove", (e) =>
+      elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
+    )
+    // on hover out, rebase to default
+    .on("mouseout", (e, d) => {
+      d3.select(`.vertex#${d.var_id}`)
+        .selectAll("circle")
+        .attr(
+          "stroke-width",
+          GlobalUI.dim.vertex_circle_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .attr(
+          "r",
+          GlobalUI.dim.vertex_circle_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      d3.select(`.vertex#${d.var_id}`)
+        .selectAll("text")
+        .attr(
+          "font-size",
+          GlobalUI.dim.vertex_font_size(d.var_id.length) *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      // remove covariance highlight
+      d3.select(`#${d.var_id}.covariance`).classed("highlight", false);
+      // hide the tooltip
+      d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
+      elDivTooltip.style("visibility", "hidden");
+    });
 }
 
-function join_enter_covariance(enter){
-  return enter
-          .append("ellipse")
-          .classed("covariance",true)
-          .attr("id", (d) => d.var_id)
-          .attr(
-            "transform",
-            d=>`translate(${d.mean.x},${d.mean.y}) rotate(${(d.covariance.rot * 180) / Math.PI})`
-          )
-          .attr("rx",d=> d.covariance.sigma[0] * Math.sqrt(9.21))
-          .attr("ry",d=> d.covariance.sigma[1] * Math.sqrt(9.21))
-          .attr("stroke-width",GlobalUI.dim.covariance_ellipse_width * GlobalUI.get_unified_scaling_coefficient())
-          // .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
-          // .transition()
-          // .duration(400)
-          // .style("opacity", null); // wow! this will look for the CSS (has to a style)
-}
-
-function join_update_covariance(update){
-  const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
-  update
-      .transition(t_graph_motion)
-      .attr("transform", 
-            d=>`translate(${d.mean.x},${d.mean.y}) rotate(${(d.covariance.rot * 180) / Math.PI})`
-      )
-      .attr("rx",d=> d.covariance.sigma[0] * Math.sqrt(9.21))
-      .attr("ry",d=> d.covariance.sigma[1] * Math.sqrt(9.21));
-}
-
-function join_update_vertex(update) {
-  const t_graph_motion = d3.transition().duration(1000).ease(d3.easeCubicInOut);
-  update
-    // .each(function (d) {
-    // d3.select(this)
-      .transition(t_graph_motion)
-      .attr("transform",d=> `translate(${d.mean.x}, ${d.mean.y})`);
-  // });
-}
-
-function join_exit_vertex(exit) {
-  // TODO:
-  return exit;
+function factor_hover(factor_dot) {
+  factor_dot
+    .on("mouseover", (e, d) => {
+      //circle first
+      d3.select(e.currentTarget)
+        .attr(
+          "r",
+          1.4 *
+            GlobalUI.dim.factor_dot_r *
+            GlobalUI.get_unified_scaling_coefficient()
+        )
+        .attr(
+          "stroke-width",
+          2 *
+            GlobalUI.dim.factor_dot_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      // highlight the line(s) from the dot factor to the vertex/ices , and also the stroke of this/ese vertex/ices
+      d3.select(`.factor#${d.factor_id}`)
+        .classed("link_highlight", true)
+        .raise();
+      d.vars_id.forEach((var_str) =>
+        d3.select(`.vertex#${var_str}`).classed("link_highlight", true).raise()
+      );
+      // raise this factor, as well as the connected nodes (the .raise() in previous loop)
+      d3.select(e.currentTarget).raise();
+      // the tooltip
+      elDivTooltip
+        .style("left", `${e.pageX}px`)
+        .style("top", `${e.pageY - 6}px`)
+        .style("visibility", "visible").html(`<p class="tooltip-title">
+                        <strong><em>${d.factor_id}</em></strong>
+                       </p>
+                       <br>
+                       <span class="tooltip-field"><strong>Type</strong></span>: 
+                       <span class="tooltip-value">${d.type}</span>
+                       <br>
+                       <span class="tooltip-field"><strong>Vars</strong></span>: 
+                       <span class="tooltip-value">${d.vars_id}</span>
+                       `);
+      // cursor pointer
+      d3.select(e.currentTarget).style("cursor", "pointer");
+    })
+    .on("mousemove", (e) =>
+      elDivTooltip.style("top", e.pageY + "px").style("left", e.pageX + "px")
+    )
+    // on hover out, rebase to default
+    .on("mouseout", (e, d) => {
+      // retract the radius of the factor dot
+      d3.select(e.currentTarget)
+        .attr(
+          "r",
+          GlobalUI.dim.factor_dot_r * GlobalUI.get_unified_scaling_coefficient()
+        )
+        .attr(
+          "stroke-width",
+          GlobalUI.dim.factor_dot_width *
+            GlobalUI.get_unified_scaling_coefficient()
+        );
+      // remove the highlight on the surroundings
+      d3.select(`.factor#${d.factor_id}`).classed("link_highlight", false);
+      d.vars_id.forEach((var_str) =>
+        d3.select(`.vertex#${var_str}`).classed("link_highlight", false)
+      );
+      // hide the tooltip
+      d3.select(e.currentTarget).style("cursor", "default");
+      elDivTooltip.style("visibility", "hidden");
+    });
 }
 
 /******************************************************************************
@@ -1519,7 +1683,15 @@ function estimation_data_massage(estimation_data) {
 
 // TODO : deal with this
 function estimation_query_last_pose(an_agent_estimation) {
-  an_agent_estimation.last_pose.state = an_agent_estimation.graph.marginals.filter(
-    (marginal) => marginal.var_id == an_agent_estimation.last_pose.last_pose_id
-  )[0].mean;
+  an_agent_estimation.last_pose.state =
+    an_agent_estimation.graph.marginals.filter(
+      (marginal) =>
+        marginal.var_id == an_agent_estimation.last_pose.last_pose_id
+    )[0].mean;
+}
+
+function sqDist(v1, v2) {
+  return (
+    Math.pow(v1.mean.x - v2.mean.x, 2) + Math.pow(v1.mean.y - v2.mean.y, 2)
+  );
 }
