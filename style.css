@@ -97,7 +97,7 @@ ellipse.covariance.highlight {
 .factor.link_highlight line,
 .factor.link_highlight circle,
 .vertex.link_highlight circle {
-  stroke: darksalmon;
+  stroke: #d16d4b;
 }
 
 /******************************************/
