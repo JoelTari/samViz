@@ -260,6 +260,25 @@ client.on("message", function (topic, message) {
     const [agent_id, topic_suffix] = topic.split("/");
     AgentTeam.checkSubscriptions(agent_id, topic_suffix, msg);
   }
+  
+  // finally adapt the zoom to the new bounding-box
+  const bbox=elMainGroup.node().getBbox();
+
+  // A 1.2 coef is applied to obtain some margin around the bounding-box
+  const scaleValue = 1.0 / (1.2*Math.max(bbox.width, bbox.height));
+    
+  // translate value are the center , 
+  // (but with minus, as its a transform applied to the target zoom)
+  const translateValueX = - (bbox.x + bbox.width/2);
+  const translateValueY = -(bbox.y + bbox.height/2);
+
+  elSvg.transition().duration(500).call(
+    zoom.transform,
+    d3.zoomIdentity
+      .scale(scaleValue) 
+      .translate(translateValueX, translateValueY)
+  );
+
 });
 
 /******************************************************************************
