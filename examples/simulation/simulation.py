@@ -1,5 +1,20 @@
 #!/usr/bin/python3
 
+# Copyright 2021 AKKA Technologies (joel.tari-summerfield@akka.eu)
+
+# Licensed under the EUPL, Version 1.2 or – as soon they will be approved by
+# the European Commission - subsequent versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the Licence.
+# You may obtain a copy of the Licence at:
+
+# https://joinup.ec.europa.eu/software/page/eupl
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the Licence is distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the Licence for the specific language governing permissions and
+# limitations under the Licence.
+
 import paho.mqtt.client as mqtt
 import time
 import json
@@ -9,8 +24,13 @@ import math
 import random as rd
 import numpy.random as nprd
 
-# TODO introduce global flags such as type of commands, AA etc..
+# TODO introduce global flags such as type of commands, AA (Axis-Aligned) etc..
 # TODO dynamic change of std-dev noise
+# TODO support for bearing (only use bearing sighting of range-bearing)
+
+
+# type supported for observation sensor: range-AA (linear), range-bearing
+# type supported for odometry sensor: odometry-AA (linear), DD (differential-drive)
 
 # ----------------------------------------------------------------------------
 #                           Globals
@@ -22,17 +42,23 @@ world = {
             "robot_id": "r1",
             "state": {"x": 30, "y": 8, "th": 120*math.pi/180},
             # "state": {"x": 5, "y": 6.1, "th": 30*math.pi/180},
-            "sensor": {"range": 12, "angle_coverage": 0.75, 'type': 'range-AA'}
+            "sensors": { "observation": {"range": 12, "angle_coverage": 0.75, 'type': 'range-AA'},
+                "odometry": {"type": "AA"}
+                         }
         },
         'r2': {
             "robot_id": "r2",
             "state": {"x": 50, "y": 8, "th": 90*math.pi/180},
-            "sensor": {"range": 12, "angle_coverage": 0.167, 'type': 'range-bearing'}
+            "sensors": { "observation": {"range": 12, "angle_coverage": 0.167, 'type': 'range-bearing'},
+                "odometry": {"type": "DD"}
+                         }
         },
         'r3': {
             "robot_id": "r3",
             "state": {"x": 70, "y": 8, "th": 60*math.pi/180},
-            "sensor": {"range": 12, "angle_coverage": 0.5, 'type': 'range-bearing'}
+            "sensors": { "observation": {"range": 12, "angle_coverage": 0.5, 'type': 'range-bearing'},
+                "odometry": {"type": "DD"}
+                         }
         },
     },
     "landmarks":
@@ -103,12 +129,14 @@ measure_std_dev_ratio_y = 8.0/100
 # some mqtt related globals
 broker = 'localhost'
 
+# input (subs) topics
 cmd_topic = 'cmd'
+request_ground_truth_topic = 'request_ground_truth'
+request_position_ini_topic = 'request_position_ini'
+# output (published) topics
 cmd_feedback_topic = 'cmd_feedback'
 measures_topic = 'measures_feedback'
-request_ground_truth_topic = 'request_ground_truth'
 ground_truth_topic = 'ground_truth'
-request_position_ini_topic = 'request_position_ini'
 position_ini_topic = 'position_ini'
 
 # init flag
@@ -244,10 +272,10 @@ def measure_robot_landmark(robotstate: dict, landmark: dict, sensor_type: str) -
 
 #     return full_odom_mes
 
-def in_sensor_coverage(sensorPos: dict, target: dict, sensor_info: dict) -> bool:
-    isInRange = sqrt_dist(sensorPos, target) < sensor_info['range']
+def in_sensor_coverage(sensorPos: dict, target: dict, sensor_observation_info: dict) -> bool:
+    isInRange = sqrt_dist(sensorPos, target) < sensor_observation_info['range']
     isAngleCovered = abs(relative_angle(sensorPos, target)) / \
-        math.pi < sensor_info['angle_coverage']
+        math.pi < sensor_observation_info['angle_coverage']
     return isInRange and isAngleCovered
 
 
@@ -329,11 +357,11 @@ def cmd_vel_callback(client, msg):
     received_cmd = json.loads(msg)
     robot_id = received_cmd['robot_id']
     cmd_type = received_cmd['type']
+    # robot_cmd_type = world['robot'][robot_id][sensors][odometry]["type"]
     cmd_vel = received_cmd['cmd_vel']
     # 0b/ get the ground truth associated with this robot
-    # DEPRECATED IDX robot_idx = get_robot_index_in_world(world,robot_id)
     current_robot_pos = copy.deepcopy(world['robots'][robot_id]['state'])
-    global last_pose
+    global last_pose # TODO proper way to do it
     #
     if (cmd_type == 'AA'):
         cmd_vel_vec = np.array(
@@ -393,14 +421,14 @@ def cmd_vel_callback(client, msg):
         # 5.2.1 generate robot to landmarks measure
         #       np arrays are not json serializable, so I to convert them to list first
         #       with the np::tolist() method
-        sensor_info = world['robots'][robot_id]['sensor']
+        sensor_observation_info = world['robots'][robot_id]['sensors']['observation']
         # comprehension list
         landmarks_measurements = \
             [
                 measure_robot_landmark(
-                    current_robot_pos, l, sensor_info['type'])
+                    current_robot_pos, l, sensor_observation_info['type'])
                 for l in world['landmarks']
-                if in_sensor_coverage(current_robot_pos, l['state'], sensor_info)
+                if in_sensor_coverage(current_robot_pos, l['state'], sensor_observation_info)
             ]
         # 5.2.2 save the new robot position as the last pose node
         last_pose[robot_id]['state'] = copy.deepcopy(current_robot_pos)

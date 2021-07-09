@@ -30,7 +30,7 @@ const elDivTooltip = d3.select("body").append("div").classed("tooltip", true);
 
 // initially no robot is selected
 GlobalUI = {
-  selected_robot_id: "",
+  selected_robot_id: null,
   base_unit_graph: 1, // unit that controls the dimensions of the graph
   // (set when receiving a graph and getting a medium distance between the nodes)
   // this is the default setting, it can instead be set by the message header of graph
@@ -228,7 +228,7 @@ client.on("message", function (topic, message) {
     for (const [robot_id, robot_ground_truth] of Object.entries(msg.robots)) {
       // Merge UI and ground_truth
       robot_ground_truth.isSelected = robot_id === GlobalUI.selected_robot_id;
-      AgentTeam[robot_id] = new AgentViz(robot_ground_truth, client, elAgents);
+      AgentTeam[robot_id] = new fullAgentViz(robot_ground_truth, client, elAgents);
       // activate mqtt subscriptions
       AgentTeam[robot_id].subscribeTopicsToMqtt();
     }
@@ -368,9 +368,11 @@ class BaseAgentViz {
 class fullAgentViz extends BaseAgentViz {
   constructor(robot_data, mqttc, parent_container) {
     // base class ctor
-    super(robot_data.id, mqttc, parent_container);
+    // console.log(robot_data)
+    super(robot_data.robot_id, mqttc, parent_container);
 
-    this.sensor_svg_path = this.sensorVisual(robot_data.sensor);
+    this.sensor_svg_path = this.sensorVisual(robot_data.sensors.observation);
+    this.odometry_type = robot_data.sensors.odometry.type;
     this.history_odom = []; // successive poses of the odometry (from the last graph pose): emptied when a new pose is created on the graph
     this.history_graph = []; // succesives poses of the graph (x0 to x{last_pose})
     this.history_true = []; // successives true poses
@@ -388,9 +390,9 @@ class fullAgentViz extends BaseAgentViz {
       this.state_history
     );
     // topic names (INs)
-    this.sub_topics["odom"] = this.odomCallback;
-    this.sub_topics["measures_feedback"] = this.measuresCallback;
-    this.sub_topics["ground_truth"] = this.groundTruthCallback;
+    this.sub_topics["odom"] = this.odomCallback.bind(this);
+    this.sub_topics["measures_feedback"] = this.measuresCallback.bind(this);
+    this.sub_topics["ground_truth"] = this.groundTruthCallback.bind(this);
 
     // topic names (OUTs)
     this.topic_request_ground_truth = `${this.id}/request_ground_truth`;
@@ -562,7 +564,7 @@ class fullAgentViz extends BaseAgentViz {
   // define the callbacks
   odomCallback = function (data) {
     console.log("Receive some odom response " + this.id + "with data: ");
-    console.log(data);
+    // console.log(data);
     this.registerOdomData(data);
     this.updateVisualOdom(
       this.history_odom,
@@ -576,6 +578,7 @@ class fullAgentViz extends BaseAgentViz {
   };
   groundTruthCallback = function (data) {
     // console.log("Receive some GT info :" + this.id);
+    // console.log(data)
     this.registerGroundTruthData(data.state);
     this.updateVisualTruth(this.history_true, data.state);
   };
@@ -643,7 +646,14 @@ elBody.on("keydown", (e) => {
 
   if (!keyPressedBuffer[e.key]) keyPressedBuffer[e.key] = true;
 
-  inputCmdModel = "DD"; // TODO: centralize in globalUI
+  // determine type of input to apply (AA/DD)
+  if (GlobalUI.selected_robot_id == null){
+    console.warn("impossible to apply input cmd, no robot is selected.")
+    return;
+  }
+  const inputCmdModel = AgentTeam[GlobalUI.selected_robot_id].odometry_type;
+
+  // command to execute
   const cmdObj = inputToMove(inputCmdModel);
 
   client.publish(
@@ -838,7 +848,7 @@ constructD3Truth = function (
         .call(function (g) {
           // adding all display components
           // 1. the sensor
-          if (robot_data.sensor != null)
+          if (robot_data.sensors.observation != null)
             g.append("path").classed("sensor", true).attr("d", sensor_svg_path);
           // 2. the robot
           g.append("polygon")
