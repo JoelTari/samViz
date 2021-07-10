@@ -266,7 +266,7 @@ client.on("message", function (topic, message) {
   }
   
   // finally adapt the zoom to the new bounding-box
-  const bbox=elMainGroup.node().getBbox();
+  const bbox=elMainGroup.node().getBBox();
 
   // A 1.2 coef is applied to obtain some margin around the bounding-box
   const scaleValue = 1.0 / (1.2*Math.max(bbox.width, bbox.height));
