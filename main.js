@@ -252,7 +252,11 @@ client.on("message", function (topic, message) {
     for (const [robot_id, robot_ground_truth] of Object.entries(msg.robots)) {
       // Merge UI and ground_truth
       robot_ground_truth.isSelected = robot_id === GlobalUI.selected_robot_id;
-      AgentTeam[robot_id] = new fullAgentViz(robot_ground_truth, client, elAgents);
+      AgentTeam[robot_id] = new fullAgentViz(
+        robot_ground_truth,
+        client,
+        elAgents
+      );
       // activate mqtt subscriptions
       AgentTeam[robot_id].subscribeTopicsToMqtt();
     }
@@ -427,6 +431,40 @@ class BaseAgentViz {
       .selectAll(".vertex")
       .data(graph.marginals, (d) => d.var_id)
       .join(join_enter_vertex, join_update_vertex); // TODO: exit vertex
+
+    // update if necessary the last pose
+    // only necessary when there is id/odom topic
+    // because the odom SE2 or AA value is in reference to the last graph pose
+    if (graph.marginals.length > 0) {
+      const most_recent_variable = graph.marginals.find(
+        (m) => m.most_recent === "true"
+      );
+      if (most_recent_variable != null) {
+        this.last_pose_id = most_recent_variable.var_id;
+      } else {
+        // try to guess what the most recent pose is.
+        // It's most likely the pose 'x??' with the biggest number !
+        // It is assumed pose start with 'x'
+        const biggest_number = Math.max(
+          ...graph.marginals
+            .filter((m) => m.var_id.match("x"))
+            .map((m) => m.var_id.split("x")[1])
+        );
+        this.last_pose_id = `x${biggest_number}`;
+      }
+      this.mean_reference =
+        graph.marginals[
+          graph.marginals.findIndex((m) => m.var_id == this.last_pose_id)
+        ].mean;
+    } else {
+      // there is no pose to refer to, so use 0
+      this.last_pose_id = null;
+      this.mean_reference = { x: 0, y: 0, th: 0 };
+      console.warn("No pose in the graph to refer odometry");
+    }
+    console.log(
+      `Odometry pose reference ${this.last_pose_id} at ${this.mean_reference}`
+    );
   };
 }
 
@@ -446,6 +484,8 @@ class fullAgentViz extends BaseAgentViz {
     //      ex: history_true: there could be a min eucl. distance btw elements to reduce size
     //          history_odom: remove every other element each time the threshold is reached
     this.registerGroundTruthData(robot_data.state);
+    // initialise the reference (from odometry display) to the ground_truth
+    this.mean_reference = robot_data.state;
     // d3 : create the truth structure
     this.d3Truth = constructD3Truth(
       this.d3container,
@@ -465,6 +505,8 @@ class fullAgentViz extends BaseAgentViz {
     this.topic_request_graph = "request_graphs";
     // d3 : create the odom structure
     this.d3Odom = constructD3Odom(this.d3container, this.id);
+    this.last_pose_id = null;
+    // this.mean_reference = { x: 0, y: 0, th: 0 }; // reference pose and its mean for odometry
     // d3: create the measure visualization structure
     this.d3MeasuresViz = constructD3MeasuresViz(this.d3container, this.id);
   }
@@ -488,12 +530,12 @@ class fullAgentViz extends BaseAgentViz {
       this.d3Truth
         .append("polyline")
         .classed("state_history", true)
-        .attr("points", state_history.map((e) => `${e.x},${e.y}`).join(" "));
+        .attr("points", state_history.map((e) => `${e[0]},${e[1]}`).join(" "));
     } else if (state_history.length >= 2) {
       //update
       this.d3Truth.select("polyline.state_history").attr(
         "points",
-        state_history.map((e) => `${e.x},${e.y}`).join(" ") //+ ` ${state.x},${state.y}`
+        state_history.map((e) => `${e[0]},${e[1]}`).join(" ") //+ ` ${state.x},${state.y}`
       );
     }
   };
@@ -503,29 +545,37 @@ class fullAgentViz extends BaseAgentViz {
     this.d3Odom.style("visibility", null);
 
     this.d3Odom
-      .select(".gtranslate")
-      .attr("transform", `translate(${state.x},${state.y})`)
-      .call(function (g_tra) {
+      .attr(
+        "transform",
+        `translate(${this.mean_reference.x},${this.mean_reference.y}) rotate(${
+          (this.mean_reference.th * 180) / Math.PI
+        })`
+      )
+      .select("g.odom_reference")
+      .attr(
+        "transform",
+        `translate(${state.dx},${state.dy}) rotate(${
+          (state.dth * 180) / Math.PI
+        })`
+      )
+      .select("ellipse.odom_covariance")
+      .call(function (ellipse) {
         if (visual_covariance !== null) {
           // covariance could be 0 (impossible to draw, therefore not transmited in the data)
-          g_tra
-            .select("ellipse.odom_covariance")
+          ellipse
             .attr("rx", visual_covariance.sigma[0] * Math.sqrt(9.21))
             .attr("ry", visual_covariance.sigma[1] * Math.sqrt(9.21))
             .attr(
               "transform",
-              `rotate(${(visual_covariance.rot * 180) / Math.PI})`
-            );
+              `rotate(${((visual_covariance.rot - state.dth) * 180) / Math.PI})`
+            ); // I substract because I must cancel the state.dth rotation for the ellipse
+          // (I don't want to create another DOM wrapping element just for that)
         }
-        g_tra
-          .select(".grotate")
-          .attr("transform", `rotate(${(state.th * 180) / Math.PI})`);
       });
-
     if (odom_history.length >= 2) {
       this.d3Odom
         .select("polyline.odom_history")
-        .attr("points", odom_history.map((e) => `${e.x},${e.y}`).join(" "));
+        .attr("points", odom_history.map((e) => `${e[0]},${e[1]}`).join(" "));
     }
   };
   transcientMeasureVisual = function (state, measure_set) {
@@ -594,7 +644,9 @@ class fullAgentViz extends BaseAgentViz {
   registerGroundTruthData = function (state) {
     this.current_true_state = state;
     this.history_true = history2d_push(
-      state,
+      state.x,
+      state.y,
+      state.th,
       3,
       this.history_true,
       this.max_history_elements
@@ -605,7 +657,9 @@ class fullAgentViz extends BaseAgentViz {
     this.current_odom_state = data.state;
     this.current_odom_cov = data.visual_covariance;
     this.history_odom = history2d_push(
-      data.state,
+      data.state.dx,
+      data.state.dy,
+      data.state.dth,
       2,
       this.history_odom,
       this.max_history_elements
@@ -628,7 +682,7 @@ class fullAgentViz extends BaseAgentViz {
 
   // define the callbacks
   odomCallback = function (data) {
-    console.log("Receive some odom response " + this.id + "with data: ");
+    // console.log("Receive some odom response " + this.id + " with data: ");
     // console.log(data);
     this.registerOdomData(data);
     this.updateVisualOdom(
@@ -712,8 +766,8 @@ elBody.on("keydown", (e) => {
   if (!keyPressedBuffer[e.key]) keyPressedBuffer[e.key] = true;
 
   // determine type of input to apply (AA/DD)
-  if (GlobalUI.selected_robot_id == null){
-    console.warn("impossible to apply input cmd, no robot is selected.")
+  if (GlobalUI.selected_robot_id == null) {
+    console.warn("impossible to apply input cmd, no robot is selected.");
     return;
   }
   const inputCmdModel = AgentTeam[GlobalUI.selected_robot_id].odometry_type;
@@ -773,29 +827,31 @@ function applyMove_gg(d3_single_selected, pose) {
  *****************************************************************************/
 
 function history2d_push(
-  state,
+  x,
+  y,
+  th,
   distance_treshold,
   current_history,
   max_history_size
 ) {
   if (current_history.length < 2) {
-    current_history.push(state);
+    current_history.push([x, y, th]);
   } else {
     // const last_truth_pose = current_history[current_history.length - 1];
     const ante_truth_pose = current_history[current_history.length - 2];
     // do we replace last truth pose or do we push a new elem ?
     if (
-      (state.x - ante_truth_pose.x) ** 2 + (state.y - ante_truth_pose.y) ** 2 >
+      (x - ante_truth_pose[0]) ** 2 + (y - ante_truth_pose[1]) ** 2 >
       distance_treshold ** 2
     ) {
       // current_history.push(state);
-      current_history.push(state);
+      current_history.push([x, y, th]);
       // protecting against array overflow (wrt the defined max size)
       if (current_history.length > max_history_size) {
         current_history.shift();
       }
     } else {
-      current_history[current_history.length - 1] = state;
+      current_history[current_history.length - 1] = [x, y, th];
     }
   }
   return current_history;
@@ -961,31 +1017,28 @@ constructD3Odom = function (d3container, robot_id) {
     .call(function (g_odom) {
       g_odom
         .append("g")
-        .classed("gtranslate", true)
+        .classed("odom_reference", true)
         .call(function (g_tra) {
           g_tra
-            .append("g")
-            .classed("grotate", true)
+            .append("polygon")
             .classed("ghost", true)
-            .call(function (g_rot) {
-              g_rot
-                .append("polygon")
-                .attr("points", "0,-1 0,1 3,0")
-                .style("stroke-opacity", 0)
-                .transition()
-                .duration(400)
-                .style("stroke-opacity", null);
-              g_rot
-                .append("line")
-                .attr("x1", 0)
-                .attr("y1", 0)
-                .attr("x2", 1)
-                .attr("y2", 0)
-                .style("stroke-opacity", 0)
-                .transition()
-                .duration(400)
-                .style("stroke-opacity", null);
-            });
+            .attr("points", "0,-1 0,1 3,0")
+            .style("stroke-opacity", 0)
+            .transition()
+            .duration(400)
+            .style("stroke-opacity", null);
+          g_tra
+            .append("line")
+            .classed("ghost", true)
+            .attr("points", "0,-1 0,1 3,0")
+            .attr("x1", 0)
+            .attr("y1", 0)
+            .attr("x2", 1)
+            .attr("y2", 0)
+            .style("stroke-opacity", 0)
+            .transition()
+            .duration(400)
+            .style("stroke-opacity", null);
           g_tra.append("ellipse").classed("odom_covariance", true);
         });
       g_odom.append("polyline").classed("odom_history", true);
