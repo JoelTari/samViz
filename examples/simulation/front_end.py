@@ -36,7 +36,7 @@ if __name__ == '__main__':
     synchronized_measures_feedback_topic = '/'.join([robot_id,'measures_feedback']) 
 #outputs (pubs)
     synchronized_measures_pose_topic = '/'.join([robot_id,'measures_pose']) 
-    odom_topic ='/'.join([robot_id,'relative_odom']) #TODO rename as odom
+    odom_topic ='/'.join([robot_id,'odom'])
 
 # aggr_state
     g_aggr_state = np.zeros([3,1])
@@ -166,6 +166,7 @@ if __name__ == '__main__':
                         ,'type':data['type']
                         ,'state':{'dx':g_aggr_state[0,0],'dy':g_aggr_state[1,0]}
                         ,'covariance': g_aggr_cov[0:2,0:2].reshape(4,).tolist()
+                        ,'visual_covariance':getVisualFromCovMatrix(g_aggr_cov[0:2,0:2])
                         }
             elif (data['type'] == 'DD'):
                 process_cmd_feedback_DD(cmd_feedback,cmd_feedback_cov)
@@ -175,6 +176,7 @@ if __name__ == '__main__':
                         ,'state':{'dx':g_aggr_state[0,0],'dy':g_aggr_state[1,0]
                                     ,'dth':g_aggr_state[2,0]}
                         ,'covariance': g_aggr_cov.reshape(9,).tolist()
+                        ,'visual_covariance':getVisualFromCovMatrix(g_aggr_cov[0:2,0:2])
                         }
             else:
                 raise NotImplementedError

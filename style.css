@@ -260,7 +260,7 @@ div.tooltip .tooltip-value {
 /******************************************/
 /*   AGENTS GHOST (estimation)  */
 /******************************************/
-.ghost polygon {
+polygon.ghost {
   stroke: black;
   stroke-width: 0.1;
   stroke-opacity: 0.5;
@@ -268,7 +268,7 @@ div.tooltip .tooltip-value {
   fill-opacity: 0.1;
   stroke-dasharray: 0.5;
 }
-.ghost line {
+line.ghost {
   stroke-width: 0.3;
   stroke-opacity: 0.5;
   stroke: black;
