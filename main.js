@@ -1664,8 +1664,8 @@ function factor_hover(factor_dot) {
 // in-place changes to the data structure for convenience when joining
 function estimation_data_massage(estimation_data) {
   // Data massage before integration: some data on the vertices array are needed
-  // for the factors (1), and the other way around is also true (2)
-  // (1) the factors need the position of the vertices (which is found in the data array)
+  // to position spatially the factors (1), and the other way around is also true (2)
+  // (1) the factors need the position of the vertices (which is found in the marginals part of the data array)
   //     in order to draw the factor/edge at the right position (a line between fact-vertex)
   //     and the position of the full 'dot' representing the factor.
   estimation_data.factors.forEach((f) => {
@@ -1690,11 +1690,17 @@ function estimation_data_massage(estimation_data) {
       f.dot_factor_position = {
         x: f.vars[0].mean.x,
         y: f.vars[0].mean.y + 5 * GlobalUI.base_unit_graph,
+        // TODO: place the hard-coded 5 in globalUI
       };
     }
   });
 
-  // (2) the unary factors need the neighbors of their associated node to position
+  // (2) This solves the problem on how to position the unary factor relative to it's
+  //      (only) vertex.
+  //      Assume this vertex is connected to other factors, we choose to position the unary
+  //      factor in a free area around the vertex : in the center of the widest free angle
+  //      available.
+  //      the unary factors need the position of the neighbors of their associated node to position
   //      intuitively this factor
   //      So the proposed solution is to add a neighbors array to each vertex containing
   //      the vertices id of its neighbors.
@@ -1740,7 +1746,7 @@ function estimation_data_massage(estimation_data) {
         const u_distance = Math.sqrt(
           Math.min(25, Math.max(...squares_distances))
         );
-        // TODO: place the hard-coded 25 in globalUI
+        // TODO: place the hard-coded 5^2=25 in globalUI (same as the previous 5)
 
         // position of factor dot infered from polar coordinates
         const new_uf_position = {
@@ -1761,6 +1767,28 @@ function estimation_data_massage(estimation_data) {
         uf.dot_factor_position = new_uf_position;
       }
     });
+
+  // variable separator computation
+  
+}
+
+function add_associative_map(graph){
+  // each marginal gets a map to it's separator set to the factor(s)
+  // each marginal gets also a map from its factor_set to the nodes associated with 
+
+  graph.marginals.forEach(m=>{m.factor_set=[];m.separator_set=[]}); // create empty arrays
+  
+  // factor_set in each marginal
+  graph.factors.forEach(f=> f.vars_id.forEach( 
+      node_var => {
+                     graph.marginals.find( m => m.var_id===node_var).factor_set.push(f.factor_id);
+                  }
+      )                                                            
+  );
+  // fill separator_set in each marginal
+  graph.marginals.forEach( m=> m.factor_set)
+  
+
 }
 
 // TODO : deal with this

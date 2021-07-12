@@ -1,5 +1,7 @@
 # samViz
 
+(Work in progress)
+
 A visualization system for smoothing-and-mapping graphs, embedded in the web browser.
 
 `samViz` display a factor graphs representation given by external processes through
