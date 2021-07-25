@@ -407,6 +407,9 @@ class BaseAgentViz {
     //    - when a factor connects only 1 variable: try to find an intuitive positioning
     //                                              that depends on the other factors
     //                                              linked to that variable
+    graph.obj_marginals = objectify_marginals(graph.marginals);
+    graph.obj_factors = objectify_factors(graph.factors);
+    compute_factor_set(graph);
     estimation_data_massage(graph);
     console.log("Pre-visualization treatment done");
 
@@ -1662,37 +1665,47 @@ function factor_hover(factor_dot) {
  *****************************************************************************/
 
 // in-place changes to the data structure for convenience when joining
-function estimation_data_massage(estimation_data) {
+function estimation_data_massage({factors: d_factors, marginals: d_marginals, obj_factors: d_obj_factors, obj_marginals: d_obj_marginals}) {
   // Data massage before integration: some data on the vertices array are needed
   // to position spatially the factors (1), and the other way around is also true (2)
   // (1) the factors need the position of the vertices (which is found in the marginals part of the data array)
   //     in order to draw the factor/edge at the right position (a line between fact-vertex)
   //     and the position of the full 'dot' representing the factor.
-  estimation_data.factors.forEach((f) => {
-    f.vars = estimation_data.marginals.filter((marginal) =>
-      f.vars_id.includes(marginal.var_id)
-    );
+  d_factors.forEach((f) => {
+    f.vars = d_marginals.filter((marginal) => // construct d_factors[..].vars : a subset of the marginals
+        f.vars_id.includes(marginal.var_id)
+      );
+    // // the node set of this factor
+    // const node_set= 
     // automagically compute the factor position
     // For a factor involving several variables, the dot is positioned at the
     // barycenter of the variables mean position
     // Obviously (or not), for an unary factor, the factor dot position will reduce
     // to its unique associated node, which is suboptimal...
-    if (f.vars.length > 1) {
+    if (f.vars_id.length > 1) {
       f.dot_factor_position = {
         x:
-          f.vars.map((a_var) => a_var.mean.x).reduce((a, b) => a + b, 0) /
-          f.vars.length,
+          f.vars_id.reduce((sum_acc, var_id) => sum_acc + d_obj_marginals[var_id].mean.x ,0 ) 
+          /f.vars_id.length,// mean.x
+          // f.vars.map((a_var) => a_var.mean.x).reduce((a, b) => a + b, 0) /
+          // f.vars.length,
         y:
-          f.vars.map((a_var) => a_var.mean.y).reduce((a, b) => a + b, 0) /
-          f.vars.length,
+          f.vars_id.reduce((sum_acc, var_id) => sum_acc + d_obj_marginals[var_id].mean.y ,0 ) 
+          /f.vars_id.length,// mean.x
+          // f.vars.map((a_var) => a_var.mean.y).reduce((a, b) => a + b, 0) /
+          // f.vars.length,
       };
     } else {
       f.dot_factor_position = {
-        x: f.vars[0].mean.x,
-        y: f.vars[0].mean.y + 5 * GlobalUI.base_unit_graph,
+        x: d_obj_marginals[f.vars_id[0]].mean.y,
+        y: d_obj_marginals[f.vars_id[0]].mean.x + 5 * GlobalUI.base_unit_graph,
         // TODO: place the hard-coded 5 in globalUI
+        // x: f.vars[0].mean.x,
+        // y: f.vars[0].mean.y + 5 * GlobalUI.base_unit_graph,
       };
     }
+    // also add it in d_obj_factors
+    d_obj_factors[f.factor_id].dot_factor_position=f.dot_factor_position;
   });
 
   // (2) This solves the problem on how to position the unary factor relative to it's
@@ -1705,43 +1718,56 @@ function estimation_data_massage(estimation_data) {
   //      So the proposed solution is to add a neighbors array to each vertex containing
   //      the vertices id of its neighbors.
   //      This rely on first step
-  //      Seems that there is 2 cases, the node has neighbor(s) or has not (typicaly
+  //      Seems that there is 2 cases, the node has neighbor(s) or has not (typically
   //      happens initially with the initial pose)
-  estimation_data.factors
-    .filter((f) => f.vars_id.length == 1) // unary factor selection
+  d_factors
+    .filter((f) => f.vars_id.length == 1) 
+    // with an array of the unifactors
     .forEach((uf) => {
+      // store the id of the node this unifactor connects to
       const unique_node = uf.vars_id[0];
-      //vectors of thetas
-      const neighbors = estimation_data.factors.filter(
-        (f) => f.factor_id !== uf.factor_id && f.vars_id.includes(unique_node)
-      ); // neighbors factors of the node associated with that unary factor
-      // TODO: care if no neighbor
-      if (neighbors.length > 0) {
+      // subset array of factors: the other factors connected to this unique node
+      // const f_neighbors_of_uf = d_factors.filter(
+      //   // to be in the club of the neighbors of uf, a factor must not be uf itself AND must be connected to the 'unique node' of the unifactor
+      //   (f) => (f.factor_id !== uf.factor_id) && f.vars_id.includes(unique_node)
+      // ); 
+      const f_neighbors_of_uf = d_obj_marginals[unique_node].factor_set.filter(fid => fid !== uf.factor_id); // and filter out the uf
+      // main case: 
+      if (f_neighbors_of_uf.length > 0) {
         // if there are neighbors factors, the unary factor position must be placed
-        // at the biggest angle gap
-        const thetas = neighbors
-          .map((neighbors_f) =>
+        // at the biggest angle gap.
+
+        // Get relative orientation of the neighbor factors (take the node as the center)
+        // TODO: fix issue if neighbor has no dot_factor_position field
+        const thetas = f_neighbors_of_uf
+          .map((f_neighbor_id) =>
             Math.atan2(
-              neighbors_f.dot_factor_position.y - uf.vars[0].mean.y,
-              neighbors_f.dot_factor_position.x - uf.vars[0].mean.x
+              // f_neighbor.dot_factor_position.y - uf.vars[0].mean.y,
+              // f_neighbor.dot_factor_position.x - uf.vars[0].mean.x
+              d_obj_factors[f_neighbor_id].dot_factor_position.y - d_obj_marginals[uf.vars_id[0]].mean.y,
+              d_obj_factors[f_neighbor_id].dot_factor_position.x - d_obj_marginals[uf.vars_id[0]].mean.x
             )
           )
           .sort((a, b) => a - b); // mandatory sorting
 
+        // Find the biggest gap in the relative orientations disposition of the neighbor factors
         const thetas_2pi = thetas.map((t) => t - thetas[0]);
         const dthetas2 = thetas_2pi.map((n, i) => {
           if (i !== thetas_2pi.length - 1) {
             return thetas_2pi[i + 1] - n;
           } else return 2 * Math.PI - n;
         });
+        // compute the unifactor orientation angle (wrt node) in the middle of the biggest gap
         const idx_max = indexOfMax(dthetas2);
         const theta_unary = ecpi(thetas[idx_max] + dthetas2[idx_max] / 2);
 
         // distance of the factor wrt the vertex.
-        const squares_distances = neighbors.map(
+        const squares_distances = f_neighbors_of_uf.map(
           (nf) =>
-            (nf.dot_factor_position.y - uf.vars[0].mean.y) ** 2 +
-            (nf.dot_factor_position.x - uf.vars[0].mean.x) ** 2
+            // (nf.dot_factor_position.y - uf.vars[0].mean.y) ** 2 +
+            // (nf.dot_factor_position.x - uf.vars[0].mean.x) ** 2
+            (d_obj_factors[nf].dot_factor_position.y - d_obj_marginals[uf.vars_id[0]].mean.y) ** 2 +
+            (d_obj_factors[nf].dot_factor_position.x - d_obj_marginals[uf.vars_id[0]].mean.x) ** 2
         );
         const u_distance = Math.sqrt(
           Math.min(25, Math.max(...squares_distances))
@@ -1750,25 +1776,26 @@ function estimation_data_massage(estimation_data) {
 
         // position of factor dot infered from polar coordinates
         const new_uf_position = {
-          x: uf.vars[0].mean.x + u_distance * Math.cos(theta_unary),
-          y: uf.vars[0].mean.y + u_distance * Math.sin(theta_unary),
+          x: d_obj_marginals[uf.vars_id[0]].mean.x + u_distance * Math.cos(theta_unary),
+          y: d_obj_marginals[uf.vars_id[0]].mean.y + u_distance * Math.sin(theta_unary),
         };
         // giving new position
         uf.dot_factor_position = new_uf_position;
       } else {
-        // no neighbors
+        // corner case if this unifactor's has no other factor connected
+        // (= an isolated node with a single factor)
         const theta_unary = Math.PI / 2;
         const u_distance = 5;
         const new_uf_position = {
-          x: uf.vars[0].mean.x + u_distance * Math.cos(theta_unary),
-          y: uf.vars[0].mean.y + u_distance * Math.sin(theta_unary),
+          x: d_obj_marginals[uf.vars_id[0]].mean.x + u_distance * Math.cos(theta_unary),
+          y: d_obj_marginals[uf.vars_id[0]].mean.y + u_distance * Math.sin(theta_unary),
         };
         // giving new position
         uf.dot_factor_position = new_uf_position;
       }
+      // also add it in d_obj_factors
+      d_obj_factors[uf.factor_id].dot_factor_position=uf.dot_factor_position;
     });
-
-  // variable separator computation
   
 }
 
@@ -1804,4 +1831,60 @@ function sqDist(v1, v2) {
   return (
     Math.pow(v1.mean.x - v2.mean.x, 2) + Math.pow(v1.mean.y - v2.mean.y, 2)
   );
+}
+
+function objectify_marginals(marginals){
+  // Expected result: object where the 'var_id' are the keys
+  // Input array of where each element is an object.
+  //  'var_id' is one field of each element
+  
+  // Procedure: isolate the var_id of each object using
+  // the spread/rest operator
+  return marginals
+          .reduce(
+            (acc,marginal)=>
+              {
+                const {var_id, ...rest_of_object} = marginal;
+                acc[var_id]=rest_of_object;
+                return acc;
+              }
+          ,{}
+          );
+}
+
+function objectify_factors(factors){
+  // Expected result: object where the 'factor_id' are the keys
+  // Input array of where each element is an object.
+  //  'factor_id' is one field of each element
+  
+  // Procedure: isolate the factor_id of each object using
+  // the spread/rest operator
+  return factors
+          .reduce(
+            (acc,factor)=>
+              {
+                const {factor_id, ...rest_of_object} = factor;
+                acc[factor_id]=rest_of_object;
+                return acc;
+              }
+          ,{}
+          );
+}
+
+function compute_factor_set({marginals,obj_marginals,factors}){
+  // require loop over the factors, and another over the marginals
+  factors.forEach(
+    f=> f.vars_id.forEach(
+      node_id=> {
+        // initialise empty array if field 'factor_set' doesnt exist yet
+        if(obj_marginals[node_id].factor_set == undefined){
+          obj_marginals[node_id].factor_set= [];
+        }
+        obj_marginals[node_id].factor_set.push(f.factor_id)
+      }
+    )
+  )
+  // we added the 'factor_set' in the object representation of marginals
+  // now add it to the array marginals
+  marginals.forEach(node => node.factor_set=obj_marginals[node.var_id].factor_set);
 }
