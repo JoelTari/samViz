@@ -1540,6 +1540,8 @@ function vertex_hover(vertex_circle) {
         );
       // fill the covariance
       d3.select(`#${d.var_id}.covariance`).classed("highlight", true);
+      // compute the separator for the tooltip
+      separator_set=compute_separator(d);
       // the tooltip
       elDivTooltip
         .style("left", `${e.pageX}px`)
@@ -1554,6 +1556,9 @@ function vertex_hover(vertex_circle) {
                            (k, v) => (v.toPrecision ? v.toPrecision(4) : v),
                            "\t"
                          )}</span>
+                         <br>
+                         <span class="tooltip-field"><strong>Separator</strong></span>: 
+                         <span class="tooltip-value">${separator_set}</span>
                          `);
       // change the pointer
       d3.select(`.vertex#${d.var_id}`).style("cursor", "pointer");
@@ -1887,4 +1892,18 @@ function compute_factor_set({marginals,obj_marginals,factors}){
   // we added the 'factor_set' in the object representation of marginals
   // now add it to the array marginals
   marginals.forEach(node => node.factor_set=obj_marginals[node.var_id].factor_set);
+}
+
+function compute_separator(d_marginal){
+  separator_set=[];
+  d_marginal.factor_set.forEach(
+    factor_id => 
+    separator_set.push(
+      d3.select(`#${factor_id}`)
+        .datum()
+        .vars_id
+        .filter(node_id => node_id !== d_marginal.var_id )
+    )
+  )
+  return separator_set;
 }
