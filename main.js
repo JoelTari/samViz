@@ -1516,7 +1516,6 @@ function vertex_hover(vertex_circle) {
     .on("mouseover", (e, d) => {
       // grow the vertex circle, raise the element
       d3.select(`.vertex#${d.var_id}`)
-        .raise()
         .selectAll("circle") // TODO: necessary hover circle ??
         .attr(
           "r",
@@ -1542,9 +1541,20 @@ function vertex_hover(vertex_circle) {
       // fill the covariance
       d3.select(`#${d.var_id}.covariance`).style('visibility','visible');
       d3.select(`#${d.var_id}.covariance`).classed("highlight", true);
-
       // compute the separator for the tooltip
       separator_set=compute_separator(d);
+      // highlights on the factor and separator set
+      d.factor_set.forEach(factor_id => 
+        {
+          d3.select(`.factor#${factor_id}`).classed("link_highlight", true).raise();
+          d3.select(`.factor#${factor_id}`).datum().vars_id.forEach((var_str) =>
+            d3.select(`.vertex#${var_str}`).classed("link_highlight", true).raise()
+          );
+        }
+      )
+      // raise the hovered vertex at the top
+      d3.select(`.vertex#${d.var_id}`)
+        .raise()
       // the tooltip
       elDivTooltip
         .style("left", `${e.pageX}px`)
@@ -1590,6 +1600,15 @@ function vertex_hover(vertex_circle) {
           GlobalUI.dim.vertex_font_size(d.var_id.length) *
             GlobalUI.get_unified_scaling_coefficient()
         );
+      // remove the highlight on the factor and separator
+      d.factor_set.forEach(factor_id => 
+        {
+          d3.select(`.factor#${factor_id}`).classed("link_highlight", false);
+          d3.select(`.factor#${factor_id}`).datum().vars_id.forEach((var_str) =>
+            d3.select(`.vertex#${var_str}`).classed("link_highlight", false)
+          );
+        }
+      )
       // remove covariance highlight
       d3.select(`#${d.var_id}.covariance`).classed("highlight", false);
       // remove covariance visibility, depending on global UI
