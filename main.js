@@ -34,6 +34,7 @@ GlobalUI = {
   // (set when receiving a graph and getting a medium distance between the nodes)
   // this is the default setting, it can instead be set by the message header of graph
   excess_zoom_compensator: 1, // different than 1 when zoom too much/too little
+  covariance_visible: true,
   dim: {
     factor_dot_r: 0.3,
     factor_dot_r_mouseover: 0.42,
@@ -1539,7 +1540,9 @@ function vertex_hover(vertex_circle) {
             GlobalUI.get_unified_scaling_coefficient()
         );
       // fill the covariance
+      d3.select(`#${d.var_id}.covariance`).style('visibility','visible');
       d3.select(`#${d.var_id}.covariance`).classed("highlight", true);
+
       // compute the separator for the tooltip
       separator_set=compute_separator(d);
       // the tooltip
@@ -1589,6 +1592,8 @@ function vertex_hover(vertex_circle) {
         );
       // remove covariance highlight
       d3.select(`#${d.var_id}.covariance`).classed("highlight", false);
+      // remove covariance visibility, depending on global UI
+      d3.select(`#${d.var_id}.covariance`).style("visibility", `${GlobalUI.covariance_visible ? 'visible' : 'hidden'}`);
       // hide the tooltip
       d3.select(`.vertex#${d.var_id}`).style("cursor", "default");
       elDivTooltip.style("visibility", "hidden");
