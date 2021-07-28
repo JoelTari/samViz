@@ -12,13 +12,19 @@
 * See the Licence for the specific language governing permissions and limitations under the Licence.
 */
 
-.container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
+body {
   overflow: hidden;
+  width: 100vw;
+  height: 100vh;
   margin: 0;
+}
+
+.container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 svg.svg-content {
