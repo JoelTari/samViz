@@ -28,11 +28,16 @@ body {
 }
 
 svg.svg-content {
+  /* box-sizing: content-box; */
+  max-width: 90%;
+  max-height: 90%;
+  aspect-ratio: 80 / 48;
   background: #eee;
   /* background: #fbf9e7; */
   border: 2px solid black;
   transform: scaleY(-1);
   /* translate(0, -100%); */
+  /* margin: 0; */
 }
 
 /* text of svg should be re-flip to normal */

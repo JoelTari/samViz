@@ -18,6 +18,7 @@
 // viewbox and aspect ratio values, this assume we start the viz centered
 // around origin, with unit-sized-width
 const aspect_ratio = 0.6;
+// const aspect_ratio = 16/9.0;
 const viewbox = [-1 / 2.0, -aspect_ratio / 2.0, 1.0, aspect_ratio];
 
 // DOM related
