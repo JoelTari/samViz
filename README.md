@@ -4,16 +4,16 @@
 
 A visualization system for smoothing-and-mapping graphs, embedded in the web browser.
 
+
+![graph](assets/hello_graph.png)
+
+
 `samViz` display a factor graphs representation given by external processes through
 the `MQTT` protocol.
 
-## Supported OS
-
-`GNU/Linux`
 
 ## Dependencies
 
-- web-browser: tested on `chromium` and `firefox`
 - `live-server`
 - `mosquitto`
 
