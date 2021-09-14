@@ -41,7 +41,7 @@ GlobalUI = {
     factor_dot_r_mouseover: 0.42,
     factor_dot_width: 0.05,
     factor_dot_width_mouseover: 0.1,
-    factor_line_width: 0.15,
+    factor_line_width: 0.3,
     vertex_circle_r: 1,
     vertex_circle_width: 0.12,
     // 1340 font-size, mouseover vertex, mousemv etc..
@@ -419,11 +419,14 @@ class BaseAgentViz {
     // first the covariances
     // then the factors (therefore on top of the cov)
     // then the vertices (therefore on top of the factors)
-    this.d3FactorGraph
-      .select("g.covariances_group")
-      .selectAll(".covariance")
-      .data(graph.marginals)
-      .join(join_enter_covariance, join_update_covariance); // TODO: exit covariance
+    if (graph.header.exclude == null || ! graph.header.exclude.includes('covariance'))
+    {
+      this.d3FactorGraph
+        .select("g.covariances_group")
+        .selectAll(".covariance")
+        .data(graph.marginals)
+        .join(join_enter_covariance, join_update_covariance); // TODO: exit covariance
+    }
 
     this.d3FactorGraph
       .select("g.factors_group")
@@ -449,13 +452,13 @@ class BaseAgentViz {
       } else {
         // try to guess what the most recent pose is.
         // It's most likely the pose 'x??' with the biggest number !
-        // It is assumed pose start with 'x'
+        // It is assumed pose start with 'x' or 'X'
         const biggest_number = Math.max(
           ...graph.marginals
-            .filter((m) => m.var_id.match("x"))
-            .map((m) => m.var_id.split("x")[1])
+            .filter((m) => m.var_id.match("^[xX]"))
+            .map((m) => parseInt(m.var_id.split(/[xX]/)[1]))
         );
-        this.last_pose_id = `x${biggest_number}`;
+        this.last_pose_id = `x${biggest_number}`; // FIX: first letter could be a X (uppercase)
       }
       this.mean_reference =
         graph.marginals[
@@ -1468,28 +1471,28 @@ function join_exit_vertex(exit) {
 }
 
 function join_enter_covariance(enter) {
-  return enter
-    .append("ellipse")
-    .classed("covariance", true)
-    .attr("id", (d) => d.var_id)
-    .attr(
-      "transform",
-      (d) =>
-        `translate(${d.mean.x},${d.mean.y}) rotate(${
-          (d.covariance.rot * 180) / Math.PI
-        })`
-    )
-    .attr("rx", (d) => d.covariance.sigma[0] * Math.sqrt(9.21))
-    .attr("ry", (d) => d.covariance.sigma[1] * Math.sqrt(9.21))
-    .attr(
-      "stroke-width",
-      GlobalUI.dim.covariance_ellipse_width *
-        GlobalUI.get_unified_scaling_coefficient()
-    );
-  // .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
-  // .transition()
-  // .duration(400)
-  // .style("opacity", null); // wow! this will look for the CSS (has to a style)
+    return enter
+      .append("ellipse")
+      .classed("covariance", true)
+      .attr("id", (d) => d.var_id)
+      .attr(
+        "transform",
+        (d) =>
+          `translate(${d.mean.x},${d.mean.y}) rotate(${
+            (d.covariance.rot * 180) / Math.PI
+          })`
+      )
+      .attr("rx", (d) => d.covariance.sigma[0] * Math.sqrt(9.21))
+      .attr("ry", (d) => d.covariance.sigma[1] * Math.sqrt(9.21))
+      .attr(
+        "stroke-width",
+        GlobalUI.dim.covariance_ellipse_width *
+          GlobalUI.get_unified_scaling_coefficient()
+      );
+    // .style("opacity", 0) // wow! (see next wow) Nota: doesnt  work with attr()
+    // .transition()
+    // .duration(400)
+    // .style("opacity", null); // wow! this will look for the CSS (has to a style)
 }
 
 function join_update_covariance(update) {
