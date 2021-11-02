@@ -457,8 +457,9 @@ class BaseAgentViz {
           ...graph.marginals
             .filter((m) => m.var_id.match("^[xX]"))
             .map((m) => parseInt(m.var_id.split(/[xX]/)[1]))
-        );
+        ); // FIX: doesnt work for XS1 etc..
         this.last_pose_id = `x${biggest_number}`; // FIX: first letter could be a X (uppercase)
+        // FIX: default to the last var_id of the marginals array if the result is a NaN
       }
       this.mean_reference =
         graph.marginals[
