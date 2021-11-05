@@ -74,13 +74,17 @@ if __name__ == '__main__':
     # For this example, we assume the data to publish is given in a file
     try:
         filename=str(sys.argv[1])
+        with open(filename) as f:
+            # read all lines and join in a string
+            json_content="".join(f.readlines())
     except IndexError:
-        print("Error, no filename argument given. Exit code 1")
-        sys.exit(1)
+        try:
+            input = sys.stdin
+            json_content="".join(input.readlines())
+        except  RuntimeError:
+            print("Error, no filename argument given. Exit code 1")
+            sys.exit(1)
 
-    with open(filename) as f:
-        # read all lines and join in a string
-        json_content="".join(f.readlines())
 
     # Note: we can convert it to a python dictio with:
     # content = json.loads(json_content)
